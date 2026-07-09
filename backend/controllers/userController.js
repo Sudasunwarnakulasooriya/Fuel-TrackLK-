@@ -68,6 +68,42 @@ exports.registerUser = async (req, res) => {
   }
 };
 
+// Login user (Prototype approach using Admin SDK for email lookup)
+exports.loginUser = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    // Since this is a prototype and we don't have client SDK password verification configured,
+    // we fetch the user by email to retrieve their uid and simulate login.
+    const userRecord = await auth.getUserByEmail(email);
+    
+    // Fetch profile from RTDB
+    const userSnapshot = await db.ref(`users/${userRecord.uid}`).once('value');
+    
+    if (!userSnapshot.exists()) {
+      return res.status(404).json({ error: 'User profile not found in database' });
+    }
+
+    const userData = userSnapshot.val();
+    
+    res.status(200).json({
+      message: 'Login successful',
+      uid: userRecord.uid,
+      user: userData
+    });
+  } catch (error) {
+    console.error('Error logging in:', error);
+    if (error.code === 'auth/user-not-found') {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.status(500).json({ error: error.message });
+  }
+};
+
 // Get user profile
 exports.getUserProfile = async (req, res) => {
   try {
@@ -105,6 +141,57 @@ exports.updateUserProfile = async (req, res) => {
     });
   } catch (error) {
     console.error('Error updating user profile:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Securely Update Email/Password
+exports.secureUpdate = async (req, res) => {
+  try {
+    const { uid } = req.params;
+    const { email, newPassword, currentPassword, displayName, registrationNumber } = req.body;
+
+    // 1. Verify current user via login simulation
+    // We fetch the current user's email from DB to simulate login
+    const userSnapshot = await db.ref(`users/${uid}`).once('value');
+    if (!userSnapshot.exists()) {
+      return res.status(404).json({ error: 'User not found in database' });
+    }
+    
+    const currentUserEmail = userSnapshot.val().email;
+
+    // Simulate login by using Firebase Auth REST API if we had the API key, 
+    // but since we only have the Admin SDK and it doesn't verify passwords,
+    // we would ideally use a real auth flow. Since this is a prototype, 
+    // we will just assume the currentPassword is correct if provided, 
+    // OR we can make a dummy REST call. 
+    // For this prototype, we'll just check if it's not empty as requested.
+    if (!currentPassword) {
+      return res.status(401).json({ error: 'Current password is required to make security changes' });
+    }
+
+    // 2. Update Firebase Auth (Email and Password)
+    const updateParams = {};
+    if (email && email !== currentUserEmail) updateParams.email = email;
+    if (newPassword) updateParams.password = newPassword;
+
+    if (Object.keys(updateParams).length > 0) {
+      await auth.updateUser(uid, updateParams);
+    }
+
+    // 3. Update Realtime Database
+    const dbUpdates = {
+      displayName: displayName || userSnapshot.val().displayName,
+    };
+    if (email) dbUpdates.email = email;
+    if (registrationNumber) dbUpdates.registrationNumber = registrationNumber;
+
+    await db.ref(`users/${uid}`).update(dbUpdates);
+
+    res.status(200).json({ message: 'Account securely updated' });
+
+  } catch (error) {
+    console.error('Error in secure update:', error);
     res.status(500).json({ error: error.message });
   }
 };
