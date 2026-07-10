@@ -79,10 +79,12 @@ function AppStack() {
   );
 }
 
+import StationTabs from './StationTabs';
+
 function StationStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="StationDashboard" component={StationDashboard} />
+      <Stack.Screen name="StationTabs" component={StationTabs} />
     </Stack.Navigator>
   );
 }

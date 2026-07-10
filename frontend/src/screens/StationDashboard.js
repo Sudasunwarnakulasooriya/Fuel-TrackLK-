@@ -1,33 +1,169 @@
-import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, Switch, TouchableOpacity, TextInput } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, fontSizes, spacing, radii } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
+import PrimaryButton from '../components/PrimaryButton';
+
+const FUEL_TYPES = [
+  { id: 'petrol92', label: 'Petrol 92', icon: 'local-gas-station' },
+  { id: 'petrol95', label: 'Petrol 95', icon: 'local-gas-station' },
+  { id: 'diesel', label: 'Diesel', icon: 'local-shipping' },
+  { id: 'superdiesel', label: 'Super Diesel', icon: 'local-shipping' },
+  { id: 'kerosene', label: 'Kerosene', icon: 'opacity' },
+];
+
+const QUEUE_OPTIONS = [
+  { id: 'LOW', label: 'Short', color: colors.success },
+  { id: 'MEDIUM', label: 'Moderate', color: colors.warning },
+  { id: 'HIGH', label: 'Long', color: colors.danger },
+];
 
 export default function StationDashboard() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
+  const [isOpen, setIsOpen] = useState(true);
+  
+  // Fuel Availability State
+  const [availability, setAvailability] = useState({
+    petrol92: true,
+    petrol95: true,
+    diesel: true,
+    superdiesel: false,
+    kerosene: true,
+  });
+
+  // Queue State
+  const [queueStatus, setQueueStatus] = useState('MEDIUM');
+  const [queueCount, setQueueCount] = useState('15');
+  const [waitTime, setWaitTime] = useState('20');
+
+  const toggleFuel = (id) => {
+    setAvailability((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleSave = () => {
+    // In a real app, this would send an API request to update the database
+    alert('Station updates saved successfully!');
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Station Dashboard</Text>
-        <TouchableOpacity onPress={logout} style={styles.logoutBtn}>
-          <MaterialIcons name="logout" size={24} color={colors.danger} />
-        </TouchableOpacity>
       </View>
 
-      <View style={styles.body}>
-        <View style={styles.card}>
-          <Text style={styles.stationName}>{user?.name || 'Fuel Station'}</Text>
-          <Text style={styles.stationInfo}>{user?.email}</Text>
-          {user?.registrationNumber && <Text style={styles.stationInfo}>Reg No: {user.registrationNumber}</Text>}
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* Status Card */}
+        <View style={styles.statusCard}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.stationName}>{user?.name || 'Fuel Station'}</Text>
+            <Text style={styles.stationInfo}>{user?.email}</Text>
+          </View>
+          <View style={styles.openToggleWrap}>
+            <Text style={[styles.openToggleLabel, { color: isOpen ? colors.success : colors.danger }]}>
+              {isOpen ? 'OPEN' : 'CLOSED'}
+            </Text>
+            <Switch
+              value={isOpen}
+              onValueChange={setIsOpen}
+              trackColor={{ false: colors.surfaceMuted, true: colors.primaryTint }}
+              thumbColor={isOpen ? colors.primary : colors.textMuted}
+            />
+          </View>
         </View>
 
-        <Text style={styles.welcome}>Welcome to the FuelTrack LK Station Portal.</Text>
-        <Text style={styles.subtitle}>
-          Here you will be able to manage your station's fuel availability, view incoming queues, and manage reports.
-        </Text>
-      </View>
+        {/* Fuel Availability */}
+        <Text style={styles.sectionTitle}>Fuel Availability</Text>
+        <View style={styles.card}>
+          {FUEL_TYPES.map((fuel, index) => {
+            const isAvailable = availability[fuel.id];
+            return (
+              <View
+                key={fuel.id}
+                style={[
+                  styles.fuelRow,
+                  index === FUEL_TYPES.length - 1 && { borderBottomWidth: 0 },
+                ]}
+              >
+                <View style={styles.fuelRowLeft}>
+                  <View style={[styles.iconCircle, { backgroundColor: isAvailable ? colors.primaryTint : colors.surfaceMuted }]}>
+                    <MaterialIcons name={fuel.icon} size={20} color={isAvailable ? colors.primary : colors.textMuted} />
+                  </View>
+                  <Text style={styles.fuelLabel}>{fuel.label}</Text>
+                </View>
+                <View style={styles.fuelRowRight}>
+                  <Text style={[styles.statusText, { color: isAvailable ? colors.success : colors.textMuted }]}>
+                    {isAvailable ? 'Available' : 'Out of Stock'}
+                  </Text>
+                  <Switch
+                    value={isAvailable}
+                    onValueChange={() => toggleFuel(fuel.id)}
+                    trackColor={{ false: colors.surfaceMuted, true: colors.primaryTint }}
+                    thumbColor={isAvailable ? colors.primary : colors.textMuted}
+                  />
+                </View>
+              </View>
+            );
+          })}
+        </View>
+
+        {/* Queue Management */}
+        <Text style={styles.sectionTitle}>Queue Management</Text>
+        <View style={styles.card}>
+          <Text style={styles.inputLabel}>Current Queue Status</Text>
+          <View style={styles.queueSegmentWrap}>
+            {QUEUE_OPTIONS.map((opt) => (
+              <TouchableOpacity
+                key={opt.id}
+                style={[
+                  styles.queueSegmentBtn,
+                  queueStatus === opt.id && { backgroundColor: opt.color, borderColor: opt.color },
+                ]}
+                onPress={() => setQueueStatus(opt.id)}
+              >
+                <Text
+                  style={[
+                    styles.queueSegmentText,
+                    queueStatus === opt.id && { color: colors.white },
+                  ]}
+                >
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.rowInputs}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Est. Wait (mins)</Text>
+              <TextInput
+                style={styles.textInput}
+                value={waitTime}
+                onChangeText={setWaitTime}
+                keyboardType="numeric"
+                placeholder="e.g. 20"
+              />
+            </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Vehicles</Text>
+              <TextInput
+                style={styles.textInput}
+                value={queueCount}
+                onChangeText={setQueueCount}
+                keyboardType="numeric"
+                placeholder="e.g. 15"
+              />
+            </View>
+          </View>
+        </View>
+
+        <PrimaryButton
+          title="Save Changes"
+          onPress={handleSave}
+          style={styles.saveBtn}
+          icon={<MaterialIcons name="save" size={20} color={colors.white} />}
+        />
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -38,9 +174,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
@@ -53,14 +186,15 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.primary,
   },
-  logoutBtn: {
-    padding: spacing.xs,
+  scroll: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xxl,
   },
-  body: {
-    flex: 1,
-    padding: spacing.lg,
-  },
-  card: {
+  statusCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: colors.white,
     padding: spacing.lg,
     borderRadius: radii.lg,
@@ -72,25 +206,116 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   stationName: {
-    fontSize: fontSizes.xl,
+    fontSize: fontSizes.lg,
     fontWeight: '700',
     color: colors.textPrimary,
-    marginBottom: spacing.xs,
+    marginBottom: 4,
   },
   stationInfo: {
     fontSize: fontSizes.sm,
     color: colors.textSecondary,
-    marginBottom: 2,
   },
-  welcome: {
-    fontSize: fontSizes.base,
+  openToggleWrap: {
+    alignItems: 'center',
+  },
+  openToggleLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  sectionTitle: {
+    fontSize: fontSizes.md,
     fontWeight: '700',
     color: colors.textPrimary,
     marginBottom: spacing.sm,
   },
-  subtitle: {
+  card: {
+    backgroundColor: colors.white,
+    borderRadius: radii.lg,
+    padding: spacing.md,
+    marginBottom: spacing.xl,
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  fuelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  fuelRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  iconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fuelLabel: {
+    fontSize: fontSizes.base,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  fuelRowRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  statusText: {
+    fontSize: fontSizes.xs,
+    fontWeight: '600',
+  },
+  inputLabel: {
     fontSize: fontSizes.sm,
     color: colors.textSecondary,
-    lineHeight: 22,
+    marginBottom: spacing.xs,
+  },
+  queueSegmentWrap: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+    marginTop: spacing.xs,
+  },
+  queueSegmentBtn: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  queueSegmentText: {
+    fontSize: fontSizes.xs,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  rowInputs: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  inputGroup: {
+    flex: 1,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: fontSizes.base,
+    color: colors.textPrimary,
+    backgroundColor: colors.surfaceMuted,
+  },
+  saveBtn: {
+    marginTop: spacing.sm,
   },
 });
