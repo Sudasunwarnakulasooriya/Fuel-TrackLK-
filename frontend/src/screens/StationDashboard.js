@@ -35,7 +35,6 @@ export default function StationDashboard() {
   // Queue State
   const [queueStatus, setQueueStatus] = useState('MEDIUM');
   const [queueCount, setQueueCount] = useState('15');
-  const [waitTime, setWaitTime] = useState('20');
 
   const toggleFuel = (id) => {
     setAvailability((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -55,20 +54,27 @@ export default function StationDashboard() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Status Card */}
         <View style={styles.statusCard}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.stationName}>{user?.name || 'Fuel Station'}</Text>
-            <Text style={styles.stationInfo}>{user?.email}</Text>
-          </View>
-          <View style={styles.openToggleWrap}>
-            <Text style={[styles.openToggleLabel, { color: isOpen ? colors.success : colors.danger }]}>
-              {isOpen ? 'OPEN' : 'CLOSED'}
-            </Text>
-            <Switch
-              value={isOpen}
-              onValueChange={setIsOpen}
-              trackColor={{ false: colors.surfaceMuted, true: colors.primaryTint }}
-              thumbColor={isOpen ? colors.primary : colors.textMuted}
-            />
+          <Text style={styles.stationName}>{user?.name || 'Fuel Station'}</Text>
+          <Text style={styles.stationInfo}>{user?.email}</Text>
+          
+          <View style={styles.statusButtonsWrap}>
+            <TouchableOpacity 
+              style={[styles.statusBtn, isOpen && styles.statusBtnOpen]}
+              onPress={() => setIsOpen(true)}
+              activeOpacity={0.8}
+            >
+              <MaterialIcons name="check-circle" size={18} color={isOpen ? colors.white : colors.success} />
+              <Text style={[styles.statusBtnText, { color: isOpen ? colors.white : colors.success }]}>Open</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.statusBtn, !isOpen && styles.statusBtnClosed]}
+              onPress={() => setIsOpen(false)}
+              activeOpacity={0.8}
+            >
+              <MaterialIcons name="cancel" size={18} color={!isOpen ? colors.white : colors.danger} />
+              <Text style={[styles.statusBtnText, { color: !isOpen ? colors.white : colors.danger }]}>Closed</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -133,27 +139,15 @@ export default function StationDashboard() {
             ))}
           </View>
 
-          <View style={styles.rowInputs}>
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Est. Wait (mins)</Text>
-              <TextInput
-                style={styles.textInput}
-                value={waitTime}
-                onChangeText={setWaitTime}
-                keyboardType="numeric"
-                placeholder="e.g. 20"
-              />
-            </View>
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Vehicles</Text>
-              <TextInput
-                style={styles.textInput}
-                value={queueCount}
-                onChangeText={setQueueCount}
-                keyboardType="numeric"
-                placeholder="e.g. 15"
-              />
-            </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Vehicles</Text>
+            <TextInput
+              style={styles.textInput}
+              value={queueCount}
+              onChangeText={setQueueCount}
+              keyboardType="numeric"
+              placeholder="e.g. 15"
+            />
           </View>
         </View>
 
@@ -163,6 +157,14 @@ export default function StationDashboard() {
           style={styles.saveBtn}
           icon={<MaterialIcons name="save" size={20} color={colors.white} />}
         />
+
+        {/* Informational Estimate Box */}
+        <View style={styles.estTimeBox}>
+          <MaterialIcons name="info-outline" size={18} color={colors.primary} />
+          <Text style={styles.estTimeText}>
+            Estimated wait time is automatically calculated based on queue status.
+          </Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -192,9 +194,6 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxl,
   },
   statusCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     backgroundColor: colors.white,
     padding: spacing.lg,
     borderRadius: radii.lg,
@@ -214,14 +213,35 @@ const styles = StyleSheet.create({
   stationInfo: {
     fontSize: fontSizes.sm,
     color: colors.textSecondary,
+    marginBottom: spacing.md,
   },
-  openToggleWrap: {
+  statusButtonsWrap: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  statusBtn: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.white,
   },
-  openToggleLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    marginBottom: 4,
+  statusBtnOpen: {
+    backgroundColor: colors.success,
+    borderColor: colors.success,
+  },
+  statusBtnClosed: {
+    backgroundColor: colors.danger,
+    borderColor: colors.danger,
+  },
+  statusBtnText: {
+    fontSize: fontSizes.sm,
+    fontWeight: '700',
   },
   sectionTitle: {
     fontSize: fontSizes.md,
@@ -318,4 +338,19 @@ const styles = StyleSheet.create({
   saveBtn: {
     marginTop: spacing.sm,
   },
+  estTimeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.primaryTint,
+    padding: spacing.md,
+    borderRadius: radii.md,
+    marginTop: spacing.lg,
+  },
+  estTimeText: {
+    flex: 1,
+    fontSize: fontSizes.xs,
+    color: colors.primaryDark,
+    lineHeight: 18,
+  }
 });

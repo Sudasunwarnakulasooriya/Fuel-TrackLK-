@@ -1,5 +1,6 @@
 const { db, auth } = require('../config/firebase');
 const nodemailer = require('nodemailer');
+const bcrypt = require('bcryptjs');
 
 // Setup Nodemailer transporter
 const transporter = nodemailer.createTransport({
@@ -41,11 +42,16 @@ exports.registerUser = async (req, res) => {
     const uid = userRecord.uid;
     const userRef = db.ref(`users/${uid}`);
 
+    // Hash the password securely
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(password, salt);
+
     const userData = {
       email,
       displayName: displayName || '',
       role: role || 'driver',
       createdAt: new Date().toISOString(),
+      passwordHash,
     };
 
     if (role === 'station') {
@@ -56,11 +62,15 @@ exports.registerUser = async (req, res) => {
 
     // 2. Save additional details to Realtime Database
     await userRef.set(userData);
+    
+    // Don't send password hash to client
+    const responseData = { ...userData };
+    delete responseData.passwordHash;
 
     res.status(201).json({
       message: 'User registered successfully',
       uid,
-      user: userData
+      user: responseData
     });
   } catch (error) {
     console.error('Error registering user:', error);
@@ -78,7 +88,7 @@ exports.loginUser = async (req, res) => {
     }
 
     // Since this is a prototype and we don't have client SDK password verification configured,
-    // we fetch the user by email to retrieve their uid and simulate login.
+    // we fetch the user by email to retrieve their uid and verify their password hash manually.
     const userRecord = await auth.getUserByEmail(email);
     
     // Fetch profile from RTDB
@@ -90,10 +100,23 @@ exports.loginUser = async (req, res) => {
 
     const userData = userSnapshot.val();
     
+    if (!userData.passwordHash) {
+      return res.status(401).json({ error: 'Account requires password reset/re-registration (legacy format).' });
+    }
+
+    const isMatch = await bcrypt.compare(password, userData.passwordHash);
+    
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Invalid password' });
+    }
+    
+    const responseData = { ...userData };
+    delete responseData.passwordHash;
+    
     res.status(200).json({
       message: 'Login successful',
       uid: userRecord.uid,
-      user: userData
+      user: responseData
     });
   } catch (error) {
     console.error('Error logging in:', error);
@@ -115,7 +138,10 @@ exports.getUserProfile = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.status(200).json(userSnapshot.val());
+    const responseData = { ...userSnapshot.val() };
+    delete responseData.passwordHash;
+
+    res.status(200).json(responseData);
   } catch (error) {
     console.error('Error fetching user profile:', error);
     res.status(500).json({ error: error.message });
@@ -152,22 +178,26 @@ exports.secureUpdate = async (req, res) => {
     const { email, newPassword, currentPassword, displayName, registrationNumber } = req.body;
 
     // 1. Verify current user via login simulation
-    // We fetch the current user's email from DB to simulate login
+    // We fetch the current user's email and hash from DB
     const userSnapshot = await db.ref(`users/${uid}`).once('value');
     if (!userSnapshot.exists()) {
       return res.status(404).json({ error: 'User not found in database' });
     }
     
-    const currentUserEmail = userSnapshot.val().email;
+    const currentUser = userSnapshot.val();
+    const currentUserEmail = currentUser.email;
 
-    // Simulate login by using Firebase Auth REST API if we had the API key, 
-    // but since we only have the Admin SDK and it doesn't verify passwords,
-    // we would ideally use a real auth flow. Since this is a prototype, 
-    // we will just assume the currentPassword is correct if provided, 
-    // OR we can make a dummy REST call. 
-    // For this prototype, we'll just check if it's not empty as requested.
     if (!currentPassword) {
       return res.status(401).json({ error: 'Current password is required to make security changes' });
+    }
+
+    if (currentUser.passwordHash) {
+      const isMatch = await bcrypt.compare(currentPassword, currentUser.passwordHash);
+      if (!isMatch) {
+        return res.status(401).json({ error: 'Invalid current password' });
+      }
+    } else {
+      return res.status(401).json({ error: 'Legacy account cannot be updated this way' });
     }
 
     // 2. Update Firebase Auth (Email and Password)
@@ -185,6 +215,11 @@ exports.secureUpdate = async (req, res) => {
     };
     if (email) dbUpdates.email = email;
     if (registrationNumber) dbUpdates.registrationNumber = registrationNumber;
+    
+    if (newPassword) {
+      const salt = await bcrypt.genSalt(10);
+      dbUpdates.passwordHash = await bcrypt.hash(newPassword, salt);
+    }
 
     await db.ref(`users/${uid}`).update(dbUpdates);
 
