@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, Switch, TouchableOpacity, TextInput } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, fontSizes, spacing, radii } from '../theme/theme';
@@ -35,14 +35,56 @@ export default function StationDashboard() {
   // Queue State
   const [queueStatus, setQueueStatus] = useState('MEDIUM');
   const [queueCount, setQueueCount] = useState('15');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Fetch current station status on mount
+    const fetchStatus = async () => {
+      try {
+        const apiUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+        const res = await fetch(`${apiUrl}/api/users/${user.uid}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.isOpen !== undefined) setIsOpen(data.isOpen);
+          if (data.availability) setAvailability(data.availability);
+          if (data.queueStatus) setQueueStatus(data.queueStatus);
+          if (data.queueCount) setQueueCount(data.queueCount);
+        }
+      } catch (e) {
+        console.error('Error fetching station status', e);
+      }
+    };
+    if (user?.uid) fetchStatus();
+  }, [user]);
 
   const toggleFuel = (id) => {
     setAvailability((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const handleSave = () => {
-    // In a real app, this would send an API request to update the database
-    alert('Station updates saved successfully!');
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      const apiUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+      const res = await fetch(`${apiUrl}/api/users/${user.uid}/station-status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          isOpen,
+          availability,
+          queueStatus,
+          queueCount
+        })
+      });
+      if (res.ok) {
+        alert('Station updates saved successfully!');
+      } else {
+        alert('Failed to save updates');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Error saving updates');
+    }
+    setLoading(false);
   };
 
   return (
@@ -152,8 +194,9 @@ export default function StationDashboard() {
         </View>
 
         <PrimaryButton
-          title="Save Changes"
+          title={loading ? "Saving..." : "Save Changes"}
           onPress={handleSave}
+          disabled={loading}
           style={styles.saveBtn}
           icon={<MaterialIcons name="save" size={20} color={colors.white} />}
         />

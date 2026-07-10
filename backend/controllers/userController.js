@@ -175,7 +175,7 @@ exports.updateUserProfile = async (req, res) => {
 exports.secureUpdate = async (req, res) => {
   try {
     const { uid } = req.params;
-    const { email, newPassword, currentPassword, displayName, registrationNumber } = req.body;
+    const { email, newPassword, currentPassword, displayName, registrationNumber, location, address } = req.body;
 
     // 1. Verify current user via login simulation
     // We fetch the current user's email and hash from DB
@@ -215,6 +215,8 @@ exports.secureUpdate = async (req, res) => {
     };
     if (email) dbUpdates.email = email;
     if (registrationNumber) dbUpdates.registrationNumber = registrationNumber;
+    if (location) dbUpdates.location = location;
+    if (address) dbUpdates.address = address;
     
     if (newPassword) {
       const salt = await bcrypt.genSalt(10);
@@ -321,6 +323,59 @@ exports.verifyOtp = async (req, res) => {
     });
   } catch (error) {
     console.error('Error verifying OTP:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get all stations
+exports.getAllStations = async (req, res) => {
+  try {
+    const snapshot = await db.ref('users').once('value');
+    if (!snapshot.exists()) {
+      return res.status(200).json([]);
+    }
+    
+    const users = snapshot.val();
+    const stations = Object.keys(users)
+      .map(key => ({ id: key, ...users[key] }))
+      .filter(user => user.role === 'station')
+      .map(station => {
+        delete station.passwordHash;
+        return station;
+      });
+      
+    res.status(200).json(stations);
+  } catch (error) {
+    console.error('Error fetching stations:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Update station status (fuel, queue)
+exports.updateStationStatus = async (req, res) => {
+  try {
+    const { uid } = req.params;
+    const { isOpen, availability, queueStatus, queueCount } = req.body;
+
+    const userSnapshot = await db.ref(`users/${uid}`).once('value');
+    if (!userSnapshot.exists()) {
+      return res.status(404).json({ error: 'Station not found' });
+    }
+
+    const updateData = {
+      isOpen: isOpen !== undefined ? isOpen : true,
+      lastUpdated: new Date().toISOString()
+    };
+    
+    if (availability) updateData.availability = availability;
+    if (queueStatus) updateData.queueStatus = queueStatus;
+    if (queueCount) updateData.queueCount = queueCount;
+
+    await db.ref(`users/${uid}`).update(updateData);
+
+    res.status(200).json({ message: 'Station status updated successfully' });
+  } catch (error) {
+    console.error('Error updating station status:', error);
     res.status(500).json({ error: error.message });
   }
 };

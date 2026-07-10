@@ -19,7 +19,7 @@ export default function VerifyScreen({ route, navigation }) {
   };
 
   // Extract email passed from SignUpScreen or SignUpStationScreen
-  const { email, name, password, role, city, registrationNumber, location } = route.params || {};
+  const { email, name, password, role, city, registrationNumber, location, address } = route.params || {};
 
   const handleChange = (text, index) => {
     const next = [...code];
@@ -64,7 +64,8 @@ export default function VerifyScreen({ route, navigation }) {
             role: role || 'driver',
             city,
             registrationNumber,
-            location
+            location,
+            address
           })
         });
 
@@ -79,6 +80,7 @@ export default function VerifyScreen({ route, navigation }) {
             role: role || prev.role || 'driver',
             registrationNumber: registrationNumber || prev.registrationNumber,
             location: location || prev.location,
+            address: address || prev.address,
             city: city || prev.city,
             uid: registerData.uid
           }));
