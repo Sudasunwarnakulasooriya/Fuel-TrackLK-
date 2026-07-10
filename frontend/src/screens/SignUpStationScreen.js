@@ -7,8 +7,29 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  TouchableOpacity,
+  Modal,
+  TextInput,
+  ActivityIndicator
 } from 'react-native';
-import { colors, fontSizes, spacing } from '../theme/theme';
+import { MaterialIcons } from '@expo/vector-icons';
+// Dynamically load MapView to prevent crashes on the Web
+let MapView, Marker;
+if (Platform.OS !== 'web') {
+  const Maps = require('react-native-maps');
+  MapView = Maps.default;
+  Marker = Maps.Marker;
+} else {
+  // Dummy components for Web fallback
+  MapView = ({ children, style }) => (
+    <View style={[style, { backgroundColor: '#e1e4e8', justifyContent: 'center', alignItems: 'center' }]}>
+      <Text style={{ color: '#666' }}>Interactive Map not supported on Web.</Text>
+      <Text style={{ color: '#666' }}>Please use Expo Go on your mobile device.</Text>
+    </View>
+  );
+  Marker = () => null;
+}
+import { colors, fontSizes, spacing, radii } from '../theme/theme';
 import InputField from '../components/InputField';
 import PrimaryButton from '../components/PrimaryButton';
 import ScreenHeader from '../components/ScreenHeader';
@@ -16,15 +37,51 @@ import ScreenHeader from '../components/ScreenHeader';
 export default function SignUpStationScreen({ navigation }) {
   const [nameCity, setNameCity] = useState('');
   const [registrationNumber, setRegistrationNumber] = useState('');
-  const [location, setLocation] = useState('');
+  
+  // Location state
+  const [locationStr, setLocationStr] = useState('');
+  const [coordinates, setCoordinates] = useState({ lat: 6.9271, lng: 79.8612 }); // Default to Colombo
+  const [mapModalVisible, setMapModalVisible] = useState(false);
+  
+  const [searchQuery, setSearchQuery] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
 
   const [loading, setLoading] = useState(false);
 
+  // Search using Nominatim (OpenStreetMap API)
+  const searchLocation = async (text) => {
+    setSearchQuery(text);
+    if (text.length > 2) {
+      setIsSearching(true);
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${text}&format=json&addressdetails=1&limit=5&countrycodes=LK`);
+        const data = await res.json();
+        setSuggestions(data);
+      } catch (err) {
+        console.log("Error fetching location", err);
+      }
+      setIsSearching(false);
+    } else {
+      setSuggestions([]);
+    }
+  };
+
+  const selectSuggestion = (item) => {
+    const lat = parseFloat(item.lat);
+    const lng = parseFloat(item.lon);
+    setCoordinates({ lat, lng });
+    setLocationStr(item.display_name);
+    setSuggestions([]);
+    setSearchQuery(item.display_name);
+  };
+
   const handleSignUp = async () => {
-    if (!email || !nameCity || !registrationNumber) {
+    if (!email || !nameCity || !registrationNumber || !locationStr) {
       alert('Please fill out the required fields');
       return;
     }
@@ -54,7 +111,8 @@ export default function SignUpStationScreen({ navigation }) {
           role: 'station', 
           city: nameCity, 
           registrationNumber, 
-          location 
+          location: coordinates,
+          address: locationStr
         });
       } else {
         alert(data.error || 'Failed to send OTP');
@@ -90,13 +148,21 @@ export default function SignUpStationScreen({ navigation }) {
             onChangeText={setRegistrationNumber}
             autoCapitalize="characters"
           />
-          <InputField
-            label="Location (Address)"
-            icon="place"
-            placeholder="123 Main St, City"
-            value={location}
-            onChangeText={setLocation}
-          />
+          
+          {/* Custom Location Field */}
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Location (Address)</Text>
+            <TouchableOpacity 
+              style={styles.locationSelector}
+              onPress={() => setMapModalVisible(true)}
+            >
+              <MaterialIcons name="place" size={20} color={colors.textSecondary} />
+              <Text style={[styles.locationText, !locationStr && styles.locationPlaceholder]} numberOfLines={1}>
+                {locationStr || "Select station location..."}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           <InputField
             label="Email"
             icon="mail-outline"
@@ -131,6 +197,85 @@ export default function SignUpStationScreen({ navigation }) {
 
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Map Autocomplete Modal */}
+      <Modal
+        visible={mapModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setMapModalVisible(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setMapModalVisible(false)} style={styles.closeBtn}>
+              <MaterialIcons name="close" size={24} color={colors.textPrimary} />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Set Location</Text>
+            <View style={{ width: 24 }} />
+          </View>
+
+          <View style={styles.searchContainer}>
+            <View style={styles.searchBar}>
+              <MaterialIcons name="search" size={20} color={colors.textSecondary} />
+              <TextInput 
+                style={styles.searchInput}
+                placeholder="Search location..."
+                value={searchQuery}
+                onChangeText={searchLocation}
+              />
+              {isSearching && <ActivityIndicator size="small" color={colors.primary} />}
+            </View>
+
+            {suggestions.length > 0 && (
+              <View style={styles.suggestionsList}>
+                {suggestions.map((item, index) => (
+                  <TouchableOpacity 
+                    key={index} 
+                    style={styles.suggestionItem}
+                    onPress={() => selectSuggestion(item)}
+                  >
+                    <MaterialIcons name="place" size={20} color={colors.textSecondary} />
+                    <Text style={styles.suggestionText} numberOfLines={2}>
+                      {item.display_name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+
+          <View style={styles.mapWrapper}>
+            <MapView
+              style={styles.map}
+              region={{
+                latitude: coordinates.lat,
+                longitude: coordinates.lng,
+                latitudeDelta: 0.05,
+                longitudeDelta: 0.05,
+              }}
+              onRegionChangeComplete={(region) => {
+                // Allows user to drag map to pin-point if no active suggestion is selected
+                if (suggestions.length === 0) {
+                  setCoordinates({ lat: region.latitude, lng: region.longitude });
+                }
+              }}
+            >
+              <Marker coordinate={{ latitude: coordinates.lat, longitude: coordinates.lng }} />
+            </MapView>
+            <View style={styles.mapPinHelper}>
+              <Text style={styles.mapPinText}>Drag map to adjust exact pin location</Text>
+            </View>
+          </View>
+
+          <View style={styles.modalFooter}>
+            <PrimaryButton 
+              title="Confirm Location" 
+              onPress={() => setMapModalVisible(false)} 
+            />
+          </View>
+        </SafeAreaView>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -156,4 +301,122 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginBottom: spacing.lg,
   },
+  inputContainer: {
+    marginBottom: spacing.md,
+  },
+  inputLabel: {
+    fontSize: fontSizes.xs,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  locationSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.inputBackground,
+    paddingHorizontal: spacing.md,
+    height: 52,
+    borderRadius: radii.md,
+  },
+  locationText: {
+    flex: 1,
+    marginLeft: spacing.sm,
+    fontSize: fontSizes.base,
+    color: colors.textPrimary,
+  },
+  locationPlaceholder: {
+    color: colors.textSecondary,
+  },
+  
+  // Modal Styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: colors.white,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  closeBtn: {
+    padding: spacing.xs,
+  },
+  modalTitle: {
+    fontSize: fontSizes.lg,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  searchContainer: {
+    padding: spacing.md,
+    zIndex: 10,
+    backgroundColor: colors.white,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.inputBackground,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.md,
+    height: 50,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: spacing.sm,
+    fontSize: fontSizes.base,
+    color: colors.textPrimary,
+  },
+  suggestionsList: {
+    backgroundColor: colors.white,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginTop: spacing.xs,
+    maxHeight: 200,
+    overflow: 'hidden',
+    position: 'absolute',
+    top: 65,
+    left: spacing.md,
+    right: spacing.md,
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  suggestionText: {
+    marginLeft: spacing.sm,
+    fontSize: fontSizes.sm,
+    color: colors.textPrimary,
+  },
+  mapWrapper: {
+    flex: 1,
+    position: 'relative',
+  },
+  map: {
+    flex: 1,
+  },
+  mapPinHelper: {
+    position: 'absolute',
+    top: spacing.md,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.pill,
+  },
+  mapPinText: {
+    color: colors.white,
+    fontSize: fontSizes.xs,
+    fontWeight: '600',
+  },
+  modalFooter: {
+    padding: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  }
 });

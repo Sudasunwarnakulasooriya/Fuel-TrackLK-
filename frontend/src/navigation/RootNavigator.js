@@ -85,6 +85,9 @@ function StationStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="StationTabs" component={StationTabs} />
+      <Stack.Screen name="ManageAccount" component={ManageAccountScreen} />
+      <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
+      <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
     </Stack.Navigator>
   );
 }

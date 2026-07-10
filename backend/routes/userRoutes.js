@@ -15,6 +15,9 @@ router.post('/send-otp', userController.sendOtp);
 router.post('/verify-otp', userController.verifyOtp);
 
 
+// GET /api/users/stations
+router.get('/stations', userController.getAllStations);
+
 // GET /api/users/:uid
 router.get('/:uid', userController.getUserProfile);
 
@@ -23,5 +26,8 @@ router.put('/:uid', userController.updateUserProfile);
 
 // POST /api/users/:uid/secure-update
 router.post('/:uid/secure-update', userController.secureUpdate);
+
+// PUT /api/users/:uid/station-status
+router.put('/:uid/station-status', userController.updateStationStatus);
 
 module.exports = router;

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -12,7 +13,7 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, fontSizes, spacing, radii, shadow } from '../theme/theme';
-import { fuelTypes, fuelStations, currentUser } from '../data/mockData';
+import { fuelTypes, currentUser } from '../data/mockData';
 import FuelStationCard from '../components/FuelStationCard';
 import * as Location from 'expo-location';
 
@@ -20,6 +21,46 @@ export default function HomeScreen({ navigation }) {
   const [activeFuel, setActiveFuel] = useState(null);
   const [search, setSearch] = useState('');
   const [locationText, setLocationText] = useState('Locating...');
+  const [driverCoords, setDriverCoords] = useState(null);
+  const [stations, setStations] = useState([]);
+  const [loadingStations, setLoadingStations] = useState(true);
+
+  // Haversine formula for distance
+  const getDistance = (lat1, lon1, lat2, lon2) => {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return 'Unknown';
+    const R = 6371; 
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const d = R * c;
+    return d.toFixed(1) + ' km';
+  };
+
+  const fetchStations = async () => {
+    setLoadingStations(true);
+    try {
+      const apiUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+      const res = await fetch(`${apiUrl}/api/users/stations`);
+      if (res.ok) {
+        const data = await res.json();
+        setStations(data);
+      }
+    } catch (e) {
+      console.error('Error fetching stations:', e);
+    } finally {
+      setLoadingStations(false);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchStations();
+    }, [])
+  );
 
   useEffect(() => {
     (async () => {
@@ -31,6 +72,8 @@ export default function HomeScreen({ navigation }) {
 
       try {
         let location = await Location.getCurrentPositionAsync({});
+        setDriverCoords({ lat: location.coords.latitude, lng: location.coords.longitude });
+        
         let geocode = await Location.reverseGeocodeAsync({
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
@@ -72,7 +115,30 @@ export default function HomeScreen({ navigation }) {
     })();
   }, []);
 
-  const filteredStations = fuelStations.filter((s) => {
+  // Map real database stations to FuelStationCard props
+  const formattedStations = stations.map(s => {
+    return {
+      id: s.id,
+      name: s.displayName || 'Unknown Station',
+      address: s.address || s.city || 'Unknown Address',
+      distance: driverCoords ? getDistance(driverCoords.lat, driverCoords.lng, s.location?.lat, s.location?.lng) : 'Calc...',
+      isOpen: s.isOpen !== undefined ? s.isOpen : true,
+      availability: s.availability || {
+        petrol92: true,
+        petrol95: true,
+        diesel: true,
+        superdiesel: false,
+        kerosene: true,
+      },
+      queue: {
+        status: s.queueStatus || 'LOW',
+        count: s.queueCount || 0
+      },
+      lastUpdated: s.lastUpdated ? 'Just now' : 'Unknown' // Ideally parse dates properly
+    };
+  });
+
+  const filteredStations = formattedStations.filter((s) => {
     const matchesSearch =
       s.name.toLowerCase().includes(search.toLowerCase()) ||
       s.address.toLowerCase().includes(search.toLowerCase());
@@ -167,13 +233,19 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {filteredStations.map((station) => (
-          <FuelStationCard
-            key={station.id}
-            station={station}
-            onPress={() => navigation.navigate('StationDetails', { stationId: station.id })}
-          />
-        ))}
+        {loadingStations ? (
+          <Text style={{ textAlign: 'center', marginVertical: 20, color: colors.textMuted }}>Loading stations...</Text>
+        ) : filteredStations.length === 0 ? (
+          <Text style={{ textAlign: 'center', marginVertical: 20, color: colors.textMuted }}>No stations found.</Text>
+        ) : (
+          filteredStations.map((station) => (
+            <FuelStationCard
+              key={station.id}
+              station={station}
+              onPress={() => navigation.navigate('StationDetails', { stationId: station.id })}
+            />
+          ))
+        )}
       </ScrollView>
     </SafeAreaView>
   );
