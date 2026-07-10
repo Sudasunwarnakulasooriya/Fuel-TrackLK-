@@ -1,0 +1,187 @@
+FuelTrack LK — Project Overview
+=================================
+
+1. Introduction
+---------------
+FuelTrack LK is a smart fuel station finder and queue tracking mobile application
+designed for drivers in Sri Lanka. During fuel shortages and high-demand periods,
+drivers waste hours in queues without knowing which station has fuel, how long the
+queue is, or when the best time to visit would be. FuelTrack LK solves this by
+providing real-time fuel availability, community-reported queue conditions, and
+AI-powered predictions — all in a single mobile app.
+
+This is a university group project developed by W.D.C.S. Gunathunga
+(Sandeepa Gunathunga), targeting the Western Province of Sri Lanka.
+
+
+2. Problem Statement
+---------------------
+Sri Lankan drivers face these daily problems:
+
+  - No way to know which nearby station has the fuel type they need
+  - No visibility into queue length before physically driving to a station
+  - Wasted time and fuel driving to stations that are closed or out of stock
+  - No historical data to predict when queues will be shorter
+  - No community platform to share real-time station conditions
+  - No personal tracking of fuel expenses and consumption patterns
+
+
+3. Solution
+-----------
+FuelTrack LK addresses every problem above:
+
+  REAL-TIME AVAILABILITY     → Live fuel stock status for each station and fuel type
+  QUEUE VISIBILITY           → Community-reported queue lengths with wait time estimates
+  SMART DISCOVERY            → Search and filter stations by fuel type, queue, distance
+  AI PREDICTIONS             → Machine learning-based busy hour forecasts
+  COMMUNITY REPORTING        → Anonymous queue and availability reports from drivers
+  EXPENSE TRACKING           → Personal fuel purchase records and spending analytics
+  PUSH NOTIFICATIONS         → Alerts for fuel arrivals, queue changes, and price updates
+
+
+4. Target Audience
+------------------
+  Primary:   Vehicle owners and drivers in Sri Lanka's Western Province
+             (Colombo, Kotte, Rajagiriya, Nugegoda, Battaramulla)
+  Secondary: Fleet managers, delivery service operators, fuel station owners
+  Scale:     Designed to expand nationwide across all provinces
+
+
+5. Technology Stack
+-------------------
+
+  FRONTEND
+    Framework:       React Native (Expo SDK 57)
+    Language:        JavaScript (ES6+)
+    React Version:   React 19
+    Runtime:         React Native 0.86
+    Navigation:      React Navigation 7 (native-stack + bottom-tabs)
+    Icons:           @expo/vector-icons (MaterialIcons, FontAwesome)
+    UI Libraries:    expo-linear-gradient, react-native-svg, react-native-gesture-handler
+    Testing Device:  Expo Go (over LAN)
+
+  BACKEND
+    Database:        Firebase Realtime Database
+    Authentication:  Firebase Authentication (Email/Password + Social Login)
+    Notifications:   Firebase Cloud Messaging (FCM)
+    Storage:         Firebase Storage (for station images — future)
+
+  TOOLS & INFRASTRUCTURE
+    Version Control: GitHub
+    API Testing:     Postman (as needed)
+    Package Manager: npm
+
+
+6. Team Responsibilities
+------------------------
+
+  Member 1 — Frontend, UI/UX & Maps
+    - React Native screens and components
+    - Navigation flow and tab bar design
+    - Search, filter, and display logic
+    - Map integration for station locations
+    - Responsive layouts and animations
+
+  Member 2 — Backend, Database & Firebase
+    - Firebase Authentication setup
+    - Firebase Realtime Database structure design
+    - CRUD operations for all collections
+    - Fuel availability update logic
+    - Queue reports storage and retrieval
+    - Fuel price storage and history
+    - User expense records management
+    - Push notification system (FCM)
+    - Admin functions and user management
+
+
+7. Functional Requirements
+--------------------------
+
+  FR-01   User registration with email verification
+  FR-02   Secure login (email/password)
+  FR-03   Social login (Google, Facebook)
+  FR-04   Real-time fuel availability updates per station
+  FR-05   Queue reporting by community users
+  FR-06   Queue monitoring with vehicle count and wait time
+  FR-07   Estimated waiting time calculation and storage
+  FR-08   Fuel price tracking with current and historical data
+  FR-09   Fuel consumption analytics per user
+  FR-10   Monthly fuel usage tracking
+  FR-11   Weekly spending analytics and summaries
+  FR-12   Station facility information management
+  FR-13   Push notifications for fuel alerts and supply arrivals
+  FR-14   Community-based reporting with anonymous submissions
+  FR-15   Fuel station management (admin)
+  FR-16   System administration and user management
+  FR-17   Nearby station discovery with distance calculation
+  FR-18   Search stations by name and address
+  FR-19   Filter stations by fuel type, queue status, and availability
+  FR-20   AI-powered busy hour predictions
+  FR-21   Saved locations (home, work, custom addresses)
+  FR-22   User profile management (name, email, vehicle info)
+  FR-23   Notification preferences and settings
+
+
+8. Non-Functional Requirements
+-------------------------------
+
+  NFR-01  Secure authentication with encrypted credentials
+  NFR-02  Reliable real-time data synchronization (< 2 second latency)
+  NFR-03  Fast read/write operations on Firebase Realtime Database
+  NFR-04  Scalable database structure supporting thousands of users
+  NFR-05  Efficient push notification delivery
+  NFR-06  Offline-capable with local data caching
+  NFR-07  Cross-platform compatibility (Android and iOS via React Native)
+  NFR-08  Responsive UI that works on all screen sizes
+  NFR-09  Battery-efficient background operations
+  NFR-10  GDPR-compliant data handling for user information
+
+
+9. Current Status
+-----------------
+
+  COMPLETED:
+    ✅ Full frontend UI prototype (15 screens)
+    ✅ Navigation flow (auth stack + app stack + bottom tabs)
+    ✅ Custom tab bar with floating report button
+    ✅ Reusable component library (Button, Input, Header, Card)
+    ✅ Design system with themed colors, spacing, and typography
+    ✅ Mock data structure matching planned Firebase schema
+    ✅ Search and filter functionality
+    ✅ Community queue reporting form
+    ✅ AI predictions dashboard (static data)
+    ✅ User profile and settings layout
+
+  IN PROGRESS:
+    🔄 Firebase Authentication integration
+    🔄 Firebase Realtime Database connection
+    🔄 Replace mock data with live Firebase queries
+
+  PLANNED:
+    ⬜ Firebase Cloud Messaging for push notifications
+    ⬜ Google Maps integration for station locations
+    ⬜ Real AI prediction model
+    ⬜ Social login (Google, Facebook)
+    ⬜ Fuel price tracking system
+    ⬜ Expense tracking and analytics
+    ⬜ Admin dashboard
+    ⬜ Production build and deployment
+
+
+10. App Screens Summary
+------------------------
+
+  AUTH FLOW (5 screens):
+    Splash → Onboarding → Sign Up → Verify OTP → Success
+
+  MAIN APP (10 screens):
+    Home Dashboard          — Search, fuel filters, station cards, AI promo banner
+    Nearby Stations         — All stations with filter chips (All/Open/Short Queue/Nearest)
+    Station Details         — Hero image, fuel grid, queue card, prediction, action buttons
+    Report Queue            — Queue level + fuel checkboxes + vehicle count selector
+    Live Queue Tracking     — Simulated map with route, ETA, and station info sheet
+    AI Predictions          — Best time card, busy hour chart, trend analysis
+    Profile                 — User card, menu options, sign out
+    Saved Addresses         — Home/Work/Other locations list
+    Notifications           — Alert feed with icons and timestamps
+    Success (reusable)      — Configurable confirmation screen

@@ -1,0 +1,438 @@
+FuelTrack LK — Database Schema
+================================
+
+Database: Firebase Realtime Database
+Structure: JSON tree (NoSQL document store)
+
+This schema is designed based on the backend requirements specified in the
+project proposal and the data structures already used in the frontend mock data.
+
+
+================================================================================
+ 1. USERS
+================================================================================
+
+Purpose: Store registered user profiles, preferences, and vehicle information.
+
+Path: /users/{userId}
+
+  {
+    "userId":           "string  — Firebase Auth UID (auto-generated)",
+    "fullName":         "string  — User's display name",
+    "email":            "string  — User's email address",
+    "phone":            "string  — Phone number (e.g. +94 77 123 4567)",
+    "avatarUrl":        "string  — Profile photo URL (Firebase Storage or external)",
+    "role":             "string  — 'user' | 'admin' | 'station_owner'",
+    "createdAt":        "number  — Timestamp (milliseconds since epoch)",
+    "updatedAt":        "number  — Last profile update timestamp",
+    "isVerified":       "boolean — Email verification status",
+    "fcmToken":         "string  — Firebase Cloud Messaging device token",
+    "notificationPrefs": {
+      "fuelAlerts":       "boolean — Receive fuel supply notifications",
+      "queueAlerts":      "boolean — Receive queue change alerts",
+      "priceAlerts":      "boolean — Receive price update notifications",
+      "promotions":       "boolean — Receive promotional messages"
+    },
+    "vehicles": {
+      "{vehicleId}": {
+        "vehicleId":    "string  — Auto-generated ID",
+        "type":         "string  — 'car' | 'motorcycle' | 'van' | 'bus' | 'truck' | 'three_wheeler'",
+        "plateNumber":  "string  — License plate (e.g. CAB-4521)",
+        "fuelType":     "string  — Preferred fuel type ID (petrol92, diesel, etc.)",
+        "tankCapacity": "number  — Tank capacity in liters",
+        "isDefault":    "boolean — Primary vehicle flag"
+      }
+    },
+    "savedAddresses": {
+      "{addressId}": {
+        "addressId":  "string  — Auto-generated ID",
+        "label":      "string  — 'Home' | 'Work' | custom label",
+        "address":    "string  — Full street address",
+        "lat":        "number  — Latitude",
+        "lng":        "number  — Longitude",
+        "icon":       "string  — Icon name (home, work, place)"
+      }
+    }
+  }
+
+
+================================================================================
+ 2. FUEL STATIONS
+================================================================================
+
+Purpose: Store all fuel station details, locations, and facility information.
+
+Path: /fuelStations/{stationId}
+
+  {
+    "stationId":      "string  — Unique station identifier (e.g. st1, st2)",
+    "name":           "string  — Station name (e.g. Ceylon Petroleum - Rajagiriya)",
+    "brand":          "string  — Brand name (CPC, LIOC, Sino Lanka)",
+    "address":        "string  — Street address",
+    "lat":            "number  — Latitude coordinate",
+    "lng":            "number  — Longitude coordinate",
+    "phone":          "string  — Station phone number",
+    "imageUrl":       "string  — Station photo URL",
+    "isOpen":         "boolean — Currently open or closed",
+    "openingTime":    "string  — Opening time (e.g. 06:00)",
+    "closingTime":    "string  — Closing time (e.g. 22:00)",
+    "rating":         "number  — Average rating (0.0 – 5.0)",
+    "totalReviews":   "number  — Total number of reviews",
+    "facilities": {
+      "airPump":        "boolean",
+      "restroom":       "boolean",
+      "miniMart":       "boolean",
+      "carWash":        "boolean",
+      "mechanic":       "boolean"
+    },
+    "createdAt":      "number  — Timestamp when station was added",
+    "updatedAt":      "number  — Last metadata update timestamp",
+    "addedBy":        "string  — Admin userId who added this station"
+  }
+
+
+================================================================================
+ 3. FUEL AVAILABILITY
+================================================================================
+
+Purpose: Track real-time fuel stock status for each station and fuel type.
+         Updated by community reports and station owners.
+
+Path: /fuelAvailability/{stationId}
+
+  {
+    "stationId":    "string  — Reference to fuelStations/{stationId}",
+    "petrol92": {
+      "isAvailable":  "boolean — Currently in stock",
+      "lastUpdated":  "number  — Timestamp of last status change",
+      "updatedBy":    "string  — userId of reporter or 'system'"
+    },
+    "petrol95": {
+      "isAvailable":  "boolean",
+      "lastUpdated":  "number",
+      "updatedBy":    "string"
+    },
+    "diesel": {
+      "isAvailable":  "boolean",
+      "lastUpdated":  "number",
+      "updatedBy":    "string"
+    },
+    "superDiesel": {
+      "isAvailable":  "boolean",
+      "lastUpdated":  "number",
+      "updatedBy":    "string"
+    },
+    "kerosene": {
+      "isAvailable":  "boolean",
+      "lastUpdated":  "number",
+      "updatedBy":    "string"
+    }
+  }
+
+
+================================================================================
+ 4. QUEUE REPORTS
+================================================================================
+
+Purpose: Store community-submitted queue condition reports.
+         Each report captures queue length, available fuels, and vehicle count
+         at a specific moment. Used for calculating averages and AI predictions.
+
+Path: /queueReports/{reportId}
+
+  {
+    "reportId":       "string  — Auto-generated unique ID",
+    "stationId":      "string  — Reference to fuelStations/{stationId}",
+    "reportedBy":     "string  — userId of the reporter",
+    "queueLevel":     "string  — 'LOW' | 'MEDIUM' | 'HIGH'",
+    "vehicleCount":   "number  — Estimated vehicles in line (5, 10, 20, 30, 40)",
+    "waitMinutes":    "number  — Estimated wait time in minutes",
+    "fuelAvailable": {
+      "petrol92":     "boolean",
+      "petrol95":     "boolean",
+      "diesel":       "boolean",
+      "superDiesel":  "boolean",
+      "kerosene":     "boolean"
+    },
+    "timestamp":      "number  — When the report was submitted",
+    "isVerified":     "boolean — Whether confirmed by multiple reporters",
+    "verifiedCount":  "number  — Number of users who confirmed this report"
+  }
+
+Index: /queueReports is also indexed by stationId for fast per-station queries.
+
+Aggregated View Path: /stationQueueSummary/{stationId}
+
+  {
+    "stationId":        "string",
+    "currentQueueLevel":"string  — Latest consensus queue level",
+    "queueCount":       "number  — Latest vehicle count",
+    "waitMinutes":      "number  — Latest estimated wait",
+    "lastReportTime":   "number  — Timestamp of most recent report",
+    "totalReportsToday":"number  — Number of reports received today"
+  }
+
+
+================================================================================
+ 5. FUEL PRICES
+================================================================================
+
+Purpose: Track current and historical fuel prices. Prices are set nationally
+         in Sri Lanka by the government, so one record applies to all stations.
+         History is kept for price trend analysis.
+
+Path: /fuelPrices/current
+
+  {
+    "petrol92": {
+      "pricePerLiter": "number  — Price in LKR (e.g. 366.00)",
+      "effectiveDate": "number  — When this price became active",
+      "updatedBy":     "string  — Admin userId"
+    },
+    "petrol95": {
+      "pricePerLiter": "number",
+      "effectiveDate": "number",
+      "updatedBy":     "string"
+    },
+    "diesel": {
+      "pricePerLiter": "number",
+      "effectiveDate": "number",
+      "updatedBy":     "string"
+    },
+    "superDiesel": {
+      "pricePerLiter": "number",
+      "effectiveDate": "number",
+      "updatedBy":     "string"
+    },
+    "kerosene": {
+      "pricePerLiter": "number",
+      "effectiveDate": "number",
+      "updatedBy":     "string"
+    }
+  }
+
+Path: /fuelPrices/history/{recordId}
+
+  {
+    "recordId":       "string  — Auto-generated ID",
+    "fuelType":       "string  — petrol92 | petrol95 | diesel | superDiesel | kerosene",
+    "pricePerLiter":  "number  — Price in LKR",
+    "effectiveDate":  "number  — When this price became active",
+    "endDate":        "number  — When this price was replaced (null if current)",
+    "updatedBy":      "string  — Admin userId"
+  }
+
+
+================================================================================
+ 6. USER EXPENSES
+================================================================================
+
+Purpose: Personal fuel purchase records for each user.
+         Used for consumption analytics, monthly usage tracking,
+         and weekly spending summaries.
+
+Path: /userExpenses/{userId}/{expenseId}
+
+  {
+    "expenseId":      "string  — Auto-generated ID",
+    "userId":         "string  — Reference to users/{userId}",
+    "stationId":      "string  — Reference to fuelStations/{stationId}",
+    "fuelType":       "string  — petrol92 | petrol95 | diesel | superDiesel | kerosene",
+    "liters":         "number  — Amount of fuel purchased (liters)",
+    "pricePerLiter":  "number  — Price at time of purchase (LKR)",
+    "totalCost":      "number  — Total amount paid (LKR)",
+    "odometerReading":"number  — Vehicle odometer at time of fill (km, optional)",
+    "vehicleId":      "string  — Reference to user's vehicle",
+    "date":           "number  — Purchase date timestamp",
+    "notes":          "string  — Optional user notes",
+    "createdAt":      "number  — Record creation timestamp"
+  }
+
+Aggregated View Path: /userExpenseSummary/{userId}
+
+  {
+    "totalSpentThisMonth":  "number  — LKR",
+    "totalLitersThisMonth": "number",
+    "totalSpentThisWeek":   "number  — LKR",
+    "totalLitersThisWeek":  "number",
+    "totalSpentAllTime":    "number  — LKR",
+    "averageMonthlySpend":  "number  — LKR",
+    "lastPurchaseDate":     "number  — Timestamp",
+    "lastUpdated":          "number  — Timestamp"
+  }
+
+
+================================================================================
+ 7. NOTIFICATIONS
+================================================================================
+
+Purpose: Store notification records sent to users via Firebase Cloud Messaging.
+         Keeps history for the notification feed screen.
+
+Path: /notifications/{userId}/{notificationId}
+
+  {
+    "notificationId": "string  — Auto-generated ID",
+    "userId":         "string  — Target user",
+    "type":           "string  — 'fuel_supply' | 'queue_alert' | 'price_update' | 'report_confirmed' | 'system'",
+    "title":          "string  — Notification title",
+    "body":           "string  — Notification message body",
+    "icon":           "string  — MaterialIcons icon name",
+    "color":          "string  — Hex color for icon background",
+    "stationId":      "string  — Related station (optional, null for system alerts)",
+    "isRead":         "boolean — Has the user seen this notification",
+    "timestamp":      "number  — When notification was sent",
+    "data": {
+      "screen":       "string  — Target screen to open on tap (optional)",
+      "params":       "object  — Navigation params (optional)"
+    }
+  }
+
+
+================================================================================
+ 8. PREDICTION DATA
+================================================================================
+
+Purpose: Store AI prediction outputs per station.
+         Generated by backend analytics based on historical queue reports.
+
+Path: /predictions/{stationId}
+
+  {
+    "stationId":        "string",
+    "bestVisitTime": {
+      "start":          "string  — e.g. '13:00'",
+      "end":            "string  — e.g. '15:00'",
+      "confidence":     "number  — 0.0 to 1.0"
+    },
+    "busyHours": [
+      {
+        "hour":         "number  — 0-23",
+        "busynessScore":"number  — 0-100 (percentage)"
+      }
+    ],
+    "trendDirection":   "string  — 'increasing' | 'decreasing' | 'stable'",
+    "generatedAt":      "number  — When prediction was last computed",
+    "basedOnReports":   "number  — Number of reports used for calculation"
+  }
+
+
+================================================================================
+ 9. FUEL TYPES (Reference Data)
+================================================================================
+
+Purpose: Static reference table for fuel types and their display properties.
+
+Path: /fuelTypes/{fuelTypeId}
+
+  {
+    "id":       "string  — petrol92 | petrol95 | diesel | superDiesel | kerosene",
+    "label":    "string  — Display name (e.g. Petrol 92)",
+    "icon":     "string  — MaterialIcons icon name",
+    "color":    "string  — Hex color for UI display",
+    "sortOrder":"number  — Display order in lists"
+  }
+
+
+================================================================================
+ SECURITY RULES (Firebase Realtime Database)
+================================================================================
+
+  /users/{userId}
+    READ:   Only authenticated user with matching userId, or admin
+    WRITE:  Only authenticated user with matching userId, or admin
+
+  /fuelStations/{stationId}
+    READ:   Any authenticated user
+    WRITE:  Admin only
+
+  /fuelAvailability/{stationId}
+    READ:   Any authenticated user
+    WRITE:  Any authenticated user (community updates) + admin
+
+  /queueReports/{reportId}
+    READ:   Any authenticated user
+    WRITE:  Any authenticated user can CREATE; only reporter or admin can DELETE
+
+  /fuelPrices/**
+    READ:   Any authenticated user
+    WRITE:  Admin only
+
+  /userExpenses/{userId}/**
+    READ:   Only authenticated user with matching userId
+    WRITE:  Only authenticated user with matching userId
+
+  /notifications/{userId}/**
+    READ:   Only authenticated user with matching userId
+    WRITE:  System/admin only (via Cloud Functions)
+
+  /predictions/{stationId}
+    READ:   Any authenticated user
+    WRITE:  System only (via Cloud Functions)
+
+  /fuelTypes/**
+    READ:   Any authenticated user
+    WRITE:  Admin only
+
+
+================================================================================
+ ENTITY RELATIONSHIP DIAGRAM
+================================================================================
+
+  ┌──────────────┐       ┌─────────────────┐       ┌──────────────────┐
+  │    USERS     │       │  FUEL STATIONS  │       │   FUEL TYPES     │
+  │──────────────│       │─────────────────│       │──────────────────│
+  │ userId (PK)  │       │ stationId (PK)  │       │ id (PK)          │
+  │ fullName     │       │ name            │       │ label            │
+  │ email        │       │ brand           │       │ icon             │
+  │ phone        │       │ address         │       │ color            │
+  │ role         │       │ lat, lng        │       └──────────────────┘
+  │ vehicles[]   │       │ isOpen          │              │
+  │ addresses[]  │       │ rating          │              │
+  └──────┬───────┘       └────────┬────────┘              │
+         │                        │                        │
+         │ 1:N                    │ 1:1                    │
+         ▼                        ▼                        │
+  ┌──────────────────┐   ┌───────────────────┐            │
+  │  USER EXPENSES   │   │ FUEL AVAILABILITY │◄───────────┘
+  │──────────────────│   │───────────────────│   uses fuelTypeId
+  │ expenseId (PK)   │   │ stationId (FK)    │
+  │ userId (FK)      │   │ {fuelType}: {     │
+  │ stationId (FK)   │   │   isAvailable,    │
+  │ fuelType         │   │   lastUpdated     │
+  │ liters, cost     │   │ }                 │
+  │ date             │   └───────────────────┘
+  └──────────────────┘
+         │                        │
+         │                        │ 1:N
+         │                        ▼
+         │               ┌───────────────────┐
+         │               │  QUEUE REPORTS    │
+         │               │───────────────────│
+         │               │ reportId (PK)     │
+         │               │ stationId (FK)    │
+         │               │ reportedBy (FK)   │◄─── Users
+         │               │ queueLevel        │
+         │               │ vehicleCount      │
+         │               │ fuelAvailable{}   │
+         │               │ timestamp         │
+         │               └───────────────────┘
+         │
+         │ 1:N            ┌───────────────────┐
+         └───────────────►│  NOTIFICATIONS   │
+                          │───────────────────│
+                          │ notificationId    │
+                          │ userId (FK)       │
+                          │ type, title, body │
+                          │ stationId (FK)    │
+                          │ timestamp         │
+                          └───────────────────┘
+
+  ┌──────────────────┐   ┌───────────────────┐
+  │  FUEL PRICES     │   │   PREDICTIONS    │
+  │──────────────────│   │───────────────────│
+  │ current{}        │   │ stationId (FK)    │
+  │ history[]        │   │ bestVisitTime     │
+  │ fuelType         │   │ busyHours[]       │
+  │ pricePerLiter    │   │ trendDirection    │
+  └──────────────────┘   └───────────────────┘

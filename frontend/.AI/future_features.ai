@@ -1,0 +1,302 @@
+FuelTrack LK — Future Features & Roadmap
+==========================================
+
+
+================================================================================
+ PHASE 1 — BACKEND INTEGRATION (Priority: Critical)
+================================================================================
+
+These features connect the existing frontend to Firebase and make the app
+functional with real data instead of mock data.
+
+1.1  Firebase Authentication Integration
+     - Replace the mock login/logout with Firebase Auth
+     - Email + password registration with email verification
+     - Persist login sessions using AsyncStorage
+     - Password reset via "Forgot your password?" link
+     - Auto-login returning users (check auth state on app launch)
+     - Secure logout that clears session tokens
+
+1.2  Firebase Realtime Database Connection
+     - Replace all mockData.js imports with live Firebase queries
+     - Set up Firebase config and initialization in the app
+     - Create data service layer (read/write functions per collection)
+     - Real-time listeners for fuel availability changes
+     - Real-time listeners for queue report updates
+     - Offline data persistence using Firebase's built-in caching
+
+1.3  Social Login
+     - Google Sign-In integration (replace placeholder button)
+     - Facebook Login integration (replace placeholder button)
+     - Link social accounts with existing email accounts
+
+1.4  Queue Report Submission
+     - Connect ReportQueueScreen form to /queueReports collection
+     - Submit queue level, fuel availability, and vehicle count to Firebase
+     - Validate report data before submission
+     - Rate-limit reports (one report per station per user per 15 minutes)
+     - Update /fuelAvailability based on reported fuel stock
+     - Update /stationQueueSummary with latest aggregated data
+
+1.5  Push Notifications
+     - Integrate Firebase Cloud Messaging (FCM)
+     - Register device FCM token on login and store in user profile
+     - Receive fuel supply arrival notifications
+     - Receive queue change alerts for favorited stations
+     - Receive fuel price update notifications
+     - In-app notification feed (already built — connect to /notifications)
+     - Notification preferences in Profile settings
+
+
+================================================================================
+ PHASE 2 — MAP & LOCATION FEATURES (Priority: High)
+================================================================================
+
+These features add real map functionality and GPS-based services.
+
+2.1  Google Maps Integration
+     - Replace the fake grid map on TrackQueueScreen with real Google Maps
+     - Show all nearby fuel stations as pins on the map
+     - Custom pin markers with fuel type and queue status colors
+     - User's current location pin with blue dot
+     - Tap pin → show station info popup → navigate to StationDetails
+
+2.2  GPS Location Services
+     - Replace hardcoded "Pita Kotte" with actual device location
+     - Calculate real distances between user and each station
+     - Sort stations by actual distance (not static distanceKm values)
+     - Reverse geocoding to show readable location name in top bar
+     - Request location permissions on first launch
+
+2.3  Navigation & Directions
+     - "Navigate" button opens turn-by-turn directions to station
+     - Integration with Google Maps or Waze for external navigation
+     - Show estimated driving time and distance on StationDetails
+     - Route preview on TrackQueueScreen
+
+2.4  Geofencing & Nearby Alerts
+     - Alert user when they're near a station with short queues
+     - Auto-suggest nearest station when fuel is likely needed
+     - Background location tracking (battery optimized)
+
+
+================================================================================
+ PHASE 3 — FUEL EXPENSE TRACKING (Priority: High)
+================================================================================
+
+Personal fuel management features for drivers.
+
+3.1  Fuel Purchase Logger
+     - New "Add Expense" screen after refueling
+     - Input fields: fuel type, liters, price per liter, total cost
+     - Optional odometer reading for mileage tracking
+     - Select station from nearby list or search
+     - Auto-fill current fuel price from /fuelPrices
+
+3.2  Spending Analytics Dashboard
+     - Monthly fuel spending chart (bar or line graph)
+     - Weekly spending breakdown
+     - Spending by fuel type (pie chart)
+     - Comparison with previous month/week
+     - Average cost per kilometer calculation
+     - Total liters consumed this month
+
+3.3  Fuel Price Tracking
+     - Display current fuel prices on Home screen
+     - Price history graph (line chart over last 6 months)
+     - Price change notifications when government updates prices
+     - Price comparison (if different stations have different prices)
+
+
+================================================================================
+ PHASE 4 — AI & SMART FEATURES (Priority: Medium)
+================================================================================
+
+Intelligence features that make the app predictive and proactive.
+
+4.1  Real AI Prediction Engine
+     - Replace hardcoded prediction data with computed analytics
+     - Analyze historical queue reports to find patterns
+     - Predict busy hours for each station based on day of week and time
+     - Calculate optimal visit times and display on PredictionsScreen
+     - Confidence scores for predictions based on data volume
+     - Firebase Cloud Functions for server-side computation
+
+4.2  Smart Recommendations
+     - "Best station right now" based on queue + distance + availability
+     - "Best time to go" personalized to user's saved locations
+     - Suggest alternative stations when primary choice has long queues
+     - Weekend vs weekday pattern detection
+
+4.3  Fuel Consumption Predictions
+     - Predict when user will need to refuel based on usage patterns
+     - "Low fuel reminder" based on estimated remaining range
+     - Suggested refueling schedule optimization
+
+
+================================================================================
+ PHASE 5 — COMMUNITY & SOCIAL FEATURES (Priority: Medium)
+================================================================================
+
+Features that build a community of trusted reporters.
+
+5.1  Report Verification System
+     - Cross-validate reports from multiple users at same station
+     - Show "verified by X drivers" badge on station queue status
+     - Confidence score based on number of consistent reports
+     - Flag and discard obviously incorrect reports
+
+5.2  User Reputation System
+     - Track reporting accuracy per user
+     - Award badges for consistent and accurate reports
+     - Show reputation level on profile (Bronze → Silver → Gold)
+     - Higher-reputation users' reports weighted more heavily
+
+5.3  Station Reviews & Ratings
+     - Allow users to rate stations (1-5 stars)
+     - Written reviews with text comments
+     - Rate specific aspects: service, cleanliness, wait time accuracy
+     - Review moderation by admin
+
+5.4  Favorites & Watch List
+     - Favorite button on StationDetails (replace placeholder heart icon)
+     - "My Favorites" section on Profile or Home screen
+     - Receive priority notifications for favorited stations
+     - Quick access to favorited stations from Home
+
+
+================================================================================
+ PHASE 6 — ADMIN & MANAGEMENT (Priority: Medium)
+================================================================================
+
+Backend management features for administrators and station owners.
+
+6.1  Admin Dashboard
+     - Web-based or in-app admin panel
+     - Add, edit, and remove fuel stations
+     - Update fuel prices nationally
+     - View all queue reports and flag suspicious activity
+     - User management (ban, verify, assign roles)
+     - System-wide notification broadcasting
+
+6.2  Station Owner Portal
+     - Station owners can update their own availability
+     - Set opening/closing times
+     - Mark fuel deliveries when supply arrives
+     - View analytics for their station (visits, reports, ratings)
+
+6.3  Data Analytics
+     - Dashboard showing app-wide statistics
+     - Most visited stations, busiest times, most reported stations
+     - User growth metrics
+     - Report volume trends
+
+
+================================================================================
+ PHASE 7 — POLISH & PRODUCTION (Priority: Low initially, Critical for launch)
+================================================================================
+
+Quality improvements needed before app store release.
+
+7.1  Form Validation
+     - Email format validation on SignUp and Login
+     - Password strength requirements (min 8 chars, uppercase, number)
+     - Confirm password match check on SignUp
+     - Required field validation on all forms
+     - Inline error messages with red text and shake animation
+
+7.2  Loading & Error States
+     - Skeleton screens while data loads from Firebase
+     - Pull-to-refresh on station lists and notifications
+     - Error boundary for crash handling
+     - Network connectivity detection with offline banner
+     - Retry buttons on failed requests
+
+7.3  Onboarding Improvements
+     - Multi-page onboarding with swipe carousel (currently single page)
+     - Vehicle setup during onboarding
+     - Location permission request during onboarding
+     - Notification permission request during onboarding
+
+7.4  Accessibility
+     - Screen reader support with proper accessibility labels
+     - Sufficient color contrast ratios
+     - Touch target sizes minimum 44x44 points
+     - Dynamic text scaling support
+
+7.5  Performance Optimization
+     - Image lazy loading and caching
+     - FlatList with pagination for large station lists
+     - Debounced search input
+     - Memoized components with React.memo
+     - Reduce re-renders with useCallback and useMemo
+
+7.6  App Store Preparation
+     - Production build configuration
+     - Android APK/AAB generation
+     - iOS IPA generation (requires Mac)
+     - App store screenshots and descriptions
+     - Privacy policy and terms of service
+     - App icon finalization (already designed)
+     - Splash screen configuration
+
+7.7  Testing
+     - Unit tests for utility functions and data transformations
+     - Component tests for reusable components
+     - Integration tests for navigation flows
+     - End-to-end tests for critical user journeys
+     - Firebase security rules testing
+
+
+================================================================================
+ FEATURE PRIORITY MATRIX
+================================================================================
+
+  ┌────────────────────────────────────┬──────────┬────────────┬──────────────┐
+  │ Feature                            │ Priority │ Effort     │ Dependencies │
+  ├────────────────────────────────────┼──────────┼────────────┼──────────────┤
+  │ Firebase Auth integration          │ Critical │ Medium     │ None         │
+  │ Firebase DB connection             │ Critical │ High       │ Auth         │
+  │ Queue report submission            │ Critical │ Medium     │ Auth + DB    │
+  │ Push notifications (FCM)           │ Critical │ Medium     │ Auth + DB    │
+  │ Google Maps integration            │ High     │ High       │ API key      │
+  │ GPS location services              │ High     │ Medium     │ Permissions  │
+  │ Social login (Google/Facebook)     │ High     │ Medium     │ Auth         │
+  │ Fuel expense logger                │ High     │ Medium     │ DB           │
+  │ Spending analytics dashboard       │ High     │ High       │ Expenses     │
+  │ Fuel price tracking                │ High     │ Low        │ DB           │
+  │ Form validation                    │ High     │ Low        │ None         │
+  │ Loading & error states             │ High     │ Medium     │ None         │
+  │ Real AI predictions                │ Medium   │ Very High  │ Queue data   │
+  │ Report verification system         │ Medium   │ Medium     │ Reports      │
+  │ User reputation system             │ Medium   │ High       │ Reports      │
+  │ Station reviews & ratings          │ Medium   │ Medium     │ DB           │
+  │ Favorites & watch list             │ Medium   │ Low        │ DB           │
+  │ Navigation & directions            │ Medium   │ Medium     │ Maps         │
+  │ Admin dashboard                    │ Medium   │ Very High  │ All backend  │
+  │ Smart recommendations              │ Medium   │ High       │ AI engine    │
+  │ Onboarding improvements            │ Low      │ Low        │ None         │
+  │ Multi-page onboarding              │ Low      │ Low        │ None         │
+  │ Accessibility                      │ Low      │ Medium     │ None         │
+  │ Performance optimization           │ Low      │ Medium     │ None         │
+  │ App store preparation              │ Low      │ Medium     │ All above    │
+  │ Testing suite                      │ Low      │ High       │ None         │
+  └────────────────────────────────────┴──────────┴────────────┴──────────────┘
+
+
+================================================================================
+ ESTIMATED TIMELINE
+================================================================================
+
+  Phase 1 (Backend Integration):     2-3 weeks
+  Phase 2 (Maps & Location):         1-2 weeks
+  Phase 3 (Expense Tracking):        1-2 weeks
+  Phase 4 (AI & Smart Features):     2-3 weeks
+  Phase 5 (Community Features):      1-2 weeks
+  Phase 6 (Admin & Management):      2-3 weeks
+  Phase 7 (Polish & Production):     1-2 weeks
+
+  Total estimated development time:  10-17 weeks
+
+  Note: Phases can overlap. Phase 1 is strictly sequential (must complete
+  before others). Phases 2-6 can be partially parallelized.
