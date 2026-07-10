@@ -72,7 +72,7 @@ exports.registerUser = async (req, res) => {
 exports.loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
-    
+
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
     }
@@ -80,16 +80,16 @@ exports.loginUser = async (req, res) => {
     // Since this is a prototype and we don't have client SDK password verification configured,
     // we fetch the user by email to retrieve their uid and simulate login.
     const userRecord = await auth.getUserByEmail(email);
-    
+
     // Fetch profile from RTDB
     const userSnapshot = await db.ref(`users/${userRecord.uid}`).once('value');
-    
+
     if (!userSnapshot.exists()) {
       return res.status(404).json({ error: 'User profile not found in database' });
     }
 
     const userData = userSnapshot.val();
-    
+
     res.status(200).json({
       message: 'Login successful',
       uid: userRecord.uid,
@@ -157,7 +157,7 @@ exports.secureUpdate = async (req, res) => {
     if (!userSnapshot.exists()) {
       return res.status(404).json({ error: 'User not found in database' });
     }
-    
+
     const currentUserEmail = userSnapshot.val().email;
 
     // Simulate login by using Firebase Auth REST API if we had the API key, 

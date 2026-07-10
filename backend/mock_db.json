@@ -1,0 +1,177 @@
+{
+  "fuelStations": {
+    "st1": {
+      "id": "st1",
+      "name": "Ceylon Petroleum - Rajagiriya",
+      "brand": "CPC",
+      "address": "142 Nawala Rd, Rajagiriya",
+      "location": {
+        "lat": 6.9097,
+        "lng": 79.892
+      },
+      "rating": 4.5,
+      "reviews": 212,
+      "isOpen": true,
+      "queue": "LOW",
+      "queueCount": 6,
+      "waitMinutes": 8,
+      "lastUpdated": "5 min ago",
+      "availability": {
+        "petrol92": true,
+        "petrol95": true,
+        "diesel": true,
+        "superdiesel": false,
+        "kerosene": true
+      },
+      "image": "https://images.unsplash.com/photo-1545262810-77515befe149?w=900&q=80"
+    },
+    "st2": {
+      "id": "st2",
+      "name": "Lanka IOC - Battaramulla",
+      "brand": "LIOC",
+      "address": "88 Pannipitiya Rd, Battaramulla",
+      "location": {
+        "lat": 6.9034,
+        "lng": 79.9183
+      },
+      "rating": 4.2,
+      "reviews": 154,
+      "isOpen": true,
+      "queue": "MEDIUM",
+      "queueCount": 18,
+      "waitMinutes": 22,
+      "lastUpdated": "12 min ago",
+      "availability": {
+        "petrol92": true,
+        "petrol95": false,
+        "diesel": true,
+        "superdiesel": true,
+        "kerosene": false
+      },
+      "image": "https://images.unsplash.com/photo-1605164598578-4e9b91f5d264?w=900&q=80"
+    },
+    "st3": {
+      "id": "st3",
+      "name": "Sino Lanka Filling Station",
+      "brand": "Sino Lanka",
+      "address": "23 Kotte Rd, Pita Kotte",
+      "location": {
+        "lat": 6.8898,
+        "lng": 79.9027
+      },
+      "rating": 3.9,
+      "reviews": 88,
+      "isOpen": true,
+      "queue": "HIGH",
+      "queueCount": 41,
+      "waitMinutes": 45,
+      "lastUpdated": "3 min ago",
+      "availability": {
+        "petrol92": false,
+        "petrol95": true,
+        "diesel": true,
+        "superdiesel": false,
+        "kerosene": true
+      },
+      "image": "https://images.unsplash.com/photo-1518600506278-4e8ef466b810?w=900&q=80"
+    },
+    "st4": {
+      "id": "st4",
+      "name": "Ceylon Petroleum - Nugegoda",
+      "brand": "CPC",
+      "address": "5 High Level Rd, Nugegoda",
+      "location": {
+        "lat": 6.8649,
+        "lng": 79.8997
+      },
+      "rating": 4.6,
+      "reviews": 301,
+      "isOpen": false,
+      "queue": "LOW",
+      "queueCount": 0,
+      "waitMinutes": 0,
+      "lastUpdated": "1 hr ago",
+      "availability": {
+        "petrol92": false,
+        "petrol95": false,
+        "diesel": false,
+        "superdiesel": false,
+        "kerosene": false
+      },
+      "image": "https://images.unsplash.com/photo-1597328289392-86b3194b3e92?w=900&q=80"
+    },
+    "st5": {
+      "id": "st5",
+      "name": "Lanka IOC - Kotte",
+      "brand": "LIOC",
+      "address": "67 Kotte Rd, Kotte",
+      "location": {
+        "lat": 6.8924,
+        "lng": 79.9087
+      },
+      "rating": 4.1,
+      "reviews": 132,
+      "isOpen": true,
+      "queue": "MEDIUM",
+      "queueCount": 15,
+      "waitMinutes": 18,
+      "lastUpdated": "9 min ago",
+      "availability": {
+        "petrol92": true,
+        "petrol95": true,
+        "diesel": false,
+        "superdiesel": false,
+        "kerosene": true
+      },
+      "image": "https://images.unsplash.com/photo-1542362567-b07e54358753?w=900&q=80"
+    }
+  },
+  "mock_auth_users": {
+    "mock_uid_owner": {
+      "uid": "mock_uid_owner",
+      "email": "wsudasun@gmail.com",
+      "displayName": "Sudasun Warnakulasooriya"
+    },
+    "mock_uid_driver": {
+      "uid": "mock_uid_driver",
+      "email": "chamindusandeepa88@gmail.com",
+      "displayName": "Sandeepa Gunathunga"
+    },
+    "mock_uid_5fq8p86oo": {
+      "uid": "mock_uid_5fq8p86oo",
+      "email": "karunanayakakb@gmail.com",
+      "displayName": "Sachintha"
+    }
+  },
+  "users": {
+    "mock_uid_owner": {
+      "email": "wsudasun@gmail.com",
+      "displayName": "Sudasun Warnakulasooriya",
+      "role": "station",
+      "city": "Colombo",
+      "registrationNumber": "ST-9988",
+      "location": "Rajagiriya",
+      "createdAt": "2026-07-10T00:00:00.000Z"
+    },
+    "mock_uid_driver": {
+      "email": "chamindusandeepa88@gmail.com",
+      "displayName": "Sandeepa Gunathunga",
+      "role": "driver",
+      "createdAt": "2026-07-10T00:00:00.000Z"
+    },
+    "mock_uid_5fq8p86oo": {
+      "email": "karunanayakakb@gmail.com",
+      "displayName": "Sachintha",
+      "role": "driver",
+      "createdAt": "2026-07-10T05:43:10.104Z"
+    }
+  },
+  "otps": {
+    "karunanayakekb@gmail_com": {
+      "otp": "9455",
+      "email": "karunanayakekb@gmail.com",
+      "expiresAt": 1783662435949,
+      "createdAt": "2026-07-10T05:42:15.949Z"
+    }
+  }
+}
