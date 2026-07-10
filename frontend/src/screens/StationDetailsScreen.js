@@ -1,14 +1,38 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, SafeAreaView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, fontSizes, spacing, radii, shadow } from '../theme/theme';
 import { fuelStations, fuelTypes, queueStatus } from '../data/mockData';
 import PrimaryButton from '../components/PrimaryButton';
+import { getHourlyPredictions, getBestTimeToVisit } from '../services/predictionService';
 
 export default function StationDetailsScreen({ route, navigation }) {
   const { stationId } = route.params;
   const station = fuelStations.find((s) => s.id === stationId) || fuelStations[0];
   const status = queueStatus[station.queue];
+
+  const [bestTime, setBestTime] = useState(null);
+  const [miniChartData, setMiniChartData] = useState([]);
+
+  useEffect(() => {
+    async function fetchPredictions() {
+      try {
+        const [btResult, hourlyResult] = await Promise.all([
+          getBestTimeToVisit(station.id, station.queueCount),
+          getHourlyPredictions(station.id, station.queueCount),
+        ]);
+        setBestTime(btResult);
+        // Get 6AM–10PM for mini chart
+        const chartData = (hourlyResult.hourlyPredictions || []).filter(
+          (h) => h.hour >= 6 && h.hour <= 22
+        );
+        setMiniChartData(chartData);
+      } catch (e) {
+        console.warn('Prediction fetch failed:', e);
+      }
+    }
+    fetchPredictions();
+  }, [station.id]);
 
   return (
     <View style={styles.container}>
@@ -113,13 +137,52 @@ export default function StationDetailsScreen({ route, navigation }) {
             </View>
           </View>
 
-          <Text style={styles.sectionTitle}>Best time to visit</Text>
+          <Text style={styles.sectionTitle}>AI Queue Prediction</Text>
           <View style={styles.predictionCard}>
-            <MaterialIcons name="auto-awesome" size={20} color={colors.primary} />
+            <View style={styles.predictionHeader}>
+              <View style={styles.predictionIconCircle}>
+                <MaterialIcons name="auto-awesome" size={16} color={colors.primary} />
+              </View>
+              <View style={styles.predictionAiBadge}>
+                <MaterialIcons name="memory" size={9} color={colors.white} />
+                <Text style={styles.predictionAiBadgeText}>AI</Text>
+              </View>
+            </View>
+            <Text style={styles.predictionLabel}>Best time to visit today</Text>
+            <Text style={styles.predictionTimeValue}>
+              {bestTime?.bestTimeWindow?.startLabel || '1:00 PM'} –{' '}
+              {bestTime?.bestTimeWindow?.endLabel || '3:00 PM'}
+            </Text>
             <Text style={styles.predictionText}>
-              AI prediction: queues are usually shortest between 1:00 PM – 3:00 PM today.
+              {bestTime?.recommendation || 'AI prediction: queues are usually shortest in the afternoon.'}
             </Text>
           </View>
+
+          {/* Mini Hourly Chart */}
+          {miniChartData.length > 0 && (
+            <View style={styles.miniChartCard}>
+              <Text style={styles.miniChartTitle}>Today's Queue Forecast</Text>
+              <View style={styles.miniChartRow}>
+                {miniChartData.map((item, i) => {
+                  const maxW = Math.max(...miniChartData.map(d => d.estimatedWaitMinutes), 1);
+                  const barH = Math.max((item.estimatedWaitMinutes / maxW) * 50, 2);
+                  const barColor = item.estimatedWaitMinutes < 10 ? colors.success
+                    : item.estimatedWaitMinutes < 25 ? colors.warning : colors.danger;
+                  return (
+                    <View key={i} style={styles.miniBarWrap}>
+                      <View style={[styles.miniBar, { height: barH, backgroundColor: barColor }]} />
+                    </View>
+                  );
+                })}
+              </View>
+              <View style={styles.miniChartLabels}>
+                <Text style={styles.miniChartLabel}>6AM</Text>
+                <Text style={styles.miniChartLabel}>12PM</Text>
+                <Text style={styles.miniChartLabel}>6PM</Text>
+                <Text style={styles.miniChartLabel}>10PM</Text>
+              </View>
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -343,18 +406,93 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   predictionCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
     backgroundColor: colors.surfaceMuted,
     borderRadius: radii.lg,
     padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  predictionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  predictionIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.primaryTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  predictionAiBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: radii.pill,
+  },
+  predictionAiBadgeText: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: colors.white,
+    letterSpacing: 0.5,
+  },
+  predictionLabel: {
+    fontSize: fontSizes.xs,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  predictionTimeValue: {
+    fontSize: fontSizes.lg,
+    fontWeight: '800',
+    color: colors.textPrimary,
+    marginVertical: 2,
   },
   predictionText: {
-    flex: 1,
-    fontSize: fontSizes.sm,
+    fontSize: fontSizes.xs,
+    color: colors.textSecondary,
+    lineHeight: 17,
+  },
+  miniChartCard: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radii.lg,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  miniChartTitle: {
+    fontSize: fontSizes.xs,
+    fontWeight: '700',
     color: colors.textPrimary,
-    lineHeight: 19,
+    marginBottom: spacing.sm,
+  },
+  miniChartRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    height: 55,
+    gap: 2,
+  },
+  miniBarWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    height: '100%',
+  },
+  miniBar: {
+    width: '65%',
+    borderRadius: 2,
+    minHeight: 2,
+  },
+  miniChartLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  miniChartLabel: {
+    fontSize: 8,
+    color: colors.textMuted,
   },
   bottomBar: {
     flexDirection: 'row',

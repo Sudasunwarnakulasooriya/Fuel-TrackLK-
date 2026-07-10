@@ -15,11 +15,13 @@ import { colors, fontSizes, spacing, radii, shadow } from '../theme/theme';
 import { fuelTypes, fuelStations, currentUser } from '../data/mockData';
 import FuelStationCard from '../components/FuelStationCard';
 import * as Location from 'expo-location';
+import { getBulkPredictions } from '../services/predictionService';
 
 export default function HomeScreen({ navigation }) {
   const [activeFuel, setActiveFuel] = useState(null);
   const [search, setSearch] = useState('');
   const [locationText, setLocationText] = useState('Locating...');
+  const [aiInsight, setAiInsight] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -68,6 +70,25 @@ export default function HomeScreen({ navigation }) {
       } catch (error) {
         console.error('Error fetching location:', error);
         setLocationText('Failed to get location');
+      }
+    })();
+
+    // Fetch AI predictions for promo banner
+    (async () => {
+      try {
+        const openStations = fuelStations
+          .filter((s) => s.isOpen)
+          .map((s) => ({ stationId: s.id, queueCount: s.queueCount }));
+        const result = await getBulkPredictions(openStations);
+        if (result?.bestStation) {
+          const best = fuelStations.find((s) => s.id === result.bestStation.stationId);
+          setAiInsight({
+            stationName: best?.name?.split(' - ')[1] || best?.name || 'Nearby station',
+            waitMinutes: Math.round(result.bestStation.estimatedWaitMinutes),
+          });
+        }
+      } catch (e) {
+        // Fallback — no AI insight shown
       }
     })();
   }, []);
@@ -147,8 +168,20 @@ export default function HomeScreen({ navigation }) {
         {/* Promo banner */}
         <View style={styles.promoBanner}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.promoTag}>AI Prediction</Text>
-            <Text style={styles.promoTitle}>Avoid queues with{'\n'}smart predictions</Text>
+            <View style={styles.promoTagRow}>
+              <Text style={styles.promoTag}>AI Prediction</Text>
+              <View style={styles.promoAiBadge}>
+                <MaterialIcons name="memory" size={8} color={colors.white} />
+                <Text style={styles.promoAiBadgeText}>LIVE</Text>
+              </View>
+            </View>
+            {aiInsight ? (
+              <Text style={styles.promoTitle}>
+                {aiInsight.stationName} has{`\n`}~{aiInsight.waitMinutes} min wait now
+              </Text>
+            ) : (
+              <Text style={styles.promoTitle}>Avoid queues with{'\n'}smart predictions</Text>
+            )}
             <TouchableOpacity
               style={styles.promoBtn}
               onPress={() => navigation.navigate('Predictions')}
@@ -293,7 +326,27 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.xs,
     color: 'rgba(255,255,255,0.8)',
     fontWeight: '700',
+  },
+  promoTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginBottom: 4,
+  },
+  promoAiBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: radii.pill,
+  },
+  promoAiBadgeText: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: colors.white,
+    letterSpacing: 0.5,
   },
   promoTitle: {
     fontSize: fontSizes.md,

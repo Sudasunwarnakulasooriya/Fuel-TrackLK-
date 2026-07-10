@@ -12,6 +12,7 @@ const expenseRoutes = require('./routes/expenseRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const testRoutes = require("./routes/testRoutes");
 const mailTestRoutes = require("./routes/mailTestRoutes");
+const predictionRoutes = require('./routes/predictionRoutes');
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.use('/api/expenses', expenseRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use("/api/test", testRoutes);
 app.use("/api/mail", mailTestRoutes);
+app.use('/api/predictions', predictionRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

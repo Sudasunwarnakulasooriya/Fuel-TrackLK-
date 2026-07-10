@@ -1,11 +1,25 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, radii, fontSizes, spacing, shadow } from '../theme/theme';
 import { queueStatus } from '../data/mockData';
+import { getStationPrediction } from '../services/predictionService';
 
 export default function FuelStationCard({ station, onPress }) {
   const status = queueStatus[station.queue];
+  const [predictedWait, setPredictedWait] = useState(null);
+
+  useEffect(() => {
+    if (station.isOpen) {
+      getStationPrediction(station.id, station.queueCount)
+        .then((result) => {
+          if (result?.prediction) {
+            setPredictedWait(Math.round(result.prediction.estimatedWaitMinutes));
+          }
+        })
+        .catch(() => {});
+    }
+  }, [station.id]);
 
   return (
     <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={styles.card}>
@@ -28,11 +42,19 @@ export default function FuelStationCard({ station, onPress }) {
         <View style={styles.bottomRow}>
           <View style={styles.queueRow}>
             <View style={[styles.dot, { backgroundColor: status.color }]} />
-            <Text style={styles.queueText}>{status.label} · {station.waitMinutes} min wait</Text>
+            <Text style={styles.queueText}>{status.label} · {station.waitMinutes} min</Text>
           </View>
-          <View style={styles.ratingRow}>
-            <MaterialIcons name="star" size={14} color="#F2A93B" />
-            <Text style={styles.ratingText}>{station.rating}</Text>
+          <View style={styles.rightBadges}>
+            {predictedWait !== null && (
+              <View style={styles.aiBadge}>
+                <MaterialIcons name="auto-awesome" size={9} color={colors.primary} />
+                <Text style={styles.aiBadgeText}>AI ~{predictedWait}m</Text>
+              </View>
+            )}
+            <View style={styles.ratingRow}>
+              <MaterialIcons name="star" size={14} color="#F2A93B" />
+              <Text style={styles.ratingText}>{station.rating}</Text>
+            </View>
           </View>
         </View>
       </View>
@@ -121,5 +143,24 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.xs,
     fontWeight: '700',
     color: colors.textPrimary,
+  },
+  rightBadges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  aiBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: colors.primaryTint,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: radii.pill,
+  },
+  aiBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: colors.primary,
   },
 });
