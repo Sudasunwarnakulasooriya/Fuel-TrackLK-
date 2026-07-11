@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { GlobalAlertRef } from '../components/GlobalAlert';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -65,21 +66,49 @@ export default function ManageAccountScreen({ navigation }) {
   const [verifyVisible, setVerifyVisible] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
 
+  const searchTimeout = useRef(null);
+
   // Map Search
-  const searchLocation = async (text) => {
+  const searchLocation = (text) => {
     setSearchQuery(text);
+    
+    if (searchTimeout.current) {
+      clearTimeout(searchTimeout.current);
+    }
+    
     if (text.length > 2) {
       setIsSearching(true);
-      try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${text}&format=json&addressdetails=1&limit=5&countrycodes=LK`);
-        const data = await res.json();
-        setSuggestions(data);
-      } catch (err) {
-        console.log("Error fetching location", err);
-      }
-      setIsSearching(false);
+      searchTimeout.current = setTimeout(async () => {
+        try {
+          // Switch to Photon API (OSM-based) because Nominatim aggressively IP-bans web clients
+          const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(text)}&limit=5`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.features) {
+              const formattedData = data.features.map(f => {
+                const p = f.properties;
+                const addressParts = [p.name, p.street, p.city, p.county, p.state].filter(Boolean);
+                return {
+                  lat: f.geometry.coordinates[1],
+                  lon: f.geometry.coordinates[0],
+                  display_name: addressParts.join(', ')
+                };
+              });
+              setSuggestions(formattedData);
+            } else {
+              setSuggestions([]);
+            }
+          } else {
+            console.log("Photon error", res.status);
+          }
+        } catch (err) {
+          console.log("Error fetching location", err);
+        }
+        setIsSearching(false);
+      }, 800); // 800ms debounce
     } else {
       setSuggestions([]);
+      setIsSearching(false);
     }
   };
 
@@ -118,14 +147,14 @@ export default function ManageAccountScreen({ navigation }) {
           registrationNumber: vehicle,
           ...(user.role === 'station' && { location: coordinates, address: locationStr })
         }));
-        alert('Basic details updated!');
+        GlobalAlertRef.current?.alert('Notice', 'Basic details updated!');
         navigation.goBack();
       } else {
-        alert('Failed to update details');
+        GlobalAlertRef.current?.alert('Notice', 'Failed to update details');
       }
     } catch (e) {
       console.error(e);
-      alert('Error updating details');
+      GlobalAlertRef.current?.alert('Notice', 'Error updating details');
     }
     setLoading(false);
   };
@@ -141,7 +170,7 @@ export default function ManageAccountScreen({ navigation }) {
 
   const handleSecureSave = async () => {
     if (!currentPassword) {
-      alert('Please enter your current password');
+      GlobalAlertRef.current?.alert('Notice', 'Please enter your current password');
       return;
     }
     
@@ -183,14 +212,14 @@ export default function ManageAccountScreen({ navigation }) {
         setVerifyVisible(false);
         setCurrentPassword('');
         setNewPassword('');
-        alert('Account successfully updated!');
+        GlobalAlertRef.current?.alert('Notice', 'Account successfully updated!');
         navigation.goBack();
       } else {
-        alert(data.error || 'Verification failed');
+        GlobalAlertRef.current?.alert('Notice', data.error || 'Verification failed');
       }
     } catch (e) {
       console.error(e);
-      alert('Error communicating with server');
+      GlobalAlertRef.current?.alert('Notice', 'Error communicating with server');
     }
     setLoading(false);
   };
@@ -225,13 +254,15 @@ export default function ManageAccountScreen({ navigation }) {
             </View>
           )}
 
-          <InputField
-            label={user.role === 'station' ? "Station Registration Number" : "Vehicle Registration Number"}
-            icon={user.role === 'station' ? "badge" : "directions-car"}
-            value={vehicle}
-            onChangeText={setVehicle}
-            autoCapitalize="characters"
-          />
+          {user.role === 'station' && (
+            <InputField
+              label="Station Registration Number"
+              icon="badge"
+              value={vehicle}
+              onChangeText={setVehicle}
+              autoCapitalize="characters"
+            />
+          )}
 
           <View style={styles.divider} />
           

@@ -1,3 +1,4 @@
+import { GlobalAlertRef } from '../components/GlobalAlert';
 import React, { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -58,7 +59,7 @@ export default function LoginScreen({ navigation }) {
       
       if (!response.ok) {
         setLoading(false);
-        alert(data.error || 'Failed to login');
+        GlobalAlertRef.current?.alert('Notice', data.error || 'Failed to login');
         return;
       }
 
@@ -88,7 +89,7 @@ export default function LoginScreen({ navigation }) {
     } catch (error) {
       setLoading(false);
       console.error('Failed to login', error);
-      alert('Error connecting to backend');
+      GlobalAlertRef.current?.alert('Notice', 'Error connecting to backend');
     }
   };
 

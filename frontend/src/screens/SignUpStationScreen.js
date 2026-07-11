@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { GlobalAlertRef } from '../components/GlobalAlert';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -46,6 +47,7 @@ export default function SignUpStationScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  const searchTimeout = useRef(null);
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -54,20 +56,46 @@ export default function SignUpStationScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
 
   // Search using Nominatim (OpenStreetMap API)
-  const searchLocation = async (text) => {
+  const searchLocation = (text) => {
     setSearchQuery(text);
+    
+    if (searchTimeout.current) {
+      clearTimeout(searchTimeout.current);
+    }
+    
     if (text.length > 2) {
       setIsSearching(true);
-      try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${text}&format=json&addressdetails=1&limit=5&countrycodes=LK`);
-        const data = await res.json();
-        setSuggestions(data);
-      } catch (err) {
-        console.log("Error fetching location", err);
-      }
-      setIsSearching(false);
+      searchTimeout.current = setTimeout(async () => {
+        try {
+          // Switch to Photon API (OSM-based) because Nominatim aggressively IP-bans web clients
+          const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(text)}&limit=5`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.features) {
+              const formattedData = data.features.map(f => {
+                const p = f.properties;
+                const addressParts = [p.name, p.street, p.city, p.county, p.state].filter(Boolean);
+                return {
+                  lat: f.geometry.coordinates[1],
+                  lon: f.geometry.coordinates[0],
+                  display_name: addressParts.join(', ')
+                };
+              });
+              setSuggestions(formattedData);
+            } else {
+              setSuggestions([]);
+            }
+          } else {
+            console.log("Photon error", res.status);
+          }
+        } catch (err) {
+          console.log("Error fetching location", err);
+        }
+        setIsSearching(false);
+      }, 800); // 800ms debounce
     } else {
       setSuggestions([]);
+      setIsSearching(false);
     }
   };
 
@@ -82,12 +110,12 @@ export default function SignUpStationScreen({ navigation }) {
 
   const handleSignUp = async () => {
     if (!email || !nameCity || !registrationNumber || !locationStr) {
-      alert('Please fill out the required fields');
+      GlobalAlertRef.current?.alert('Notice', 'Please fill out the required fields');
       return;
     }
     
     if (password !== confirm) {
-      alert('Passwords do not match');
+      GlobalAlertRef.current?.alert('Notice', 'Passwords do not match');
       return;
     }
     
@@ -115,11 +143,11 @@ export default function SignUpStationScreen({ navigation }) {
           address: locationStr
         });
       } else {
-        alert(data.error || 'Failed to send OTP');
+        GlobalAlertRef.current?.alert('Notice', data.error || 'Failed to send OTP');
       }
     } catch (error) {
       setLoading(false);
-      alert('Error connecting to backend: ' + error.message);
+      GlobalAlertRef.current?.alert('Notice', 'Error connecting to backend: ' + error.message);
     }
   };
 

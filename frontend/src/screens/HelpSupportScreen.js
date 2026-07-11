@@ -1,3 +1,4 @@
+import { GlobalAlertRef } from '../components/GlobalAlert';
 import React from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -42,7 +43,7 @@ export default function HelpSupportScreen({ navigation }) {
 
         <View style={styles.contactSection}>
           <Text style={styles.contactText}>Still need help? Reach out to our support team.</Text>
-          <PrimaryButton title="Contact Support" onPress={() => alert('Contact Form Modal')} />
+          <PrimaryButton title="Contact Support" onPress={() => GlobalAlertRef.current?.alert('Notice', 'Contact Form Modal')} />
         </View>
 
       </ScrollView>

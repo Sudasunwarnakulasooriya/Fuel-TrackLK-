@@ -1,3 +1,4 @@
+import { GlobalAlertRef } from '../components/GlobalAlert';
 import React from 'react';
 import { View, Text, StyleSheet, SafeAreaView, FlatList, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -48,7 +49,7 @@ export default function MyVehiclesScreen({ navigation }) {
         renderItem={renderItem}
       />
       <View style={styles.footer}>
-        <PrimaryButton title="Add New Vehicle" onPress={() => alert('Add Vehicle Modal')} />
+        <PrimaryButton title="Add New Vehicle" onPress={() => GlobalAlertRef.current?.alert('Notice', 'Add Vehicle Modal')} />
       </View>
     </SafeAreaView>
   );

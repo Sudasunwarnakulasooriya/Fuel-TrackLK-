@@ -1,3 +1,4 @@
+import { GlobalAlertRef } from '../components/GlobalAlert';
 import React, { useState } from 'react';
 import {
   View,
@@ -24,7 +25,7 @@ export default function SignUpScreen({ navigation }) {
 
   const handleSignUp = async () => {
     if (!email) {
-      alert('Please enter an email address');
+      GlobalAlertRef.current?.alert('Notice', 'Please enter an email address');
       return;
     }
     
@@ -44,11 +45,11 @@ export default function SignUpScreen({ navigation }) {
       if (response.ok) {
         navigation.navigate('Verify', { email, name, password });
       } else {
-        alert(data.error || 'Failed to send OTP');
+        GlobalAlertRef.current?.alert('Notice', data.error || 'Failed to send OTP');
       }
     } catch (error) {
       setLoading(false);
-      alert('Error connecting to backend: ' + error.message);
+      GlobalAlertRef.current?.alert('Notice', 'Error connecting to backend: ' + error.message);
     }
   };
 

@@ -10,12 +10,14 @@ import {
   TextInput,
   Image,
   FlatList,
+  Platform,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, fontSizes, spacing, radii, shadow } from '../theme/theme';
 import { fuelTypes, currentUser } from '../data/mockData';
 import FuelStationCard from '../components/FuelStationCard';
 import * as Location from 'expo-location';
+import { useNotifications } from '../context/NotificationContext';
 
 export default function HomeScreen({ navigation }) {
   const [activeFuel, setActiveFuel] = useState(null);
@@ -24,6 +26,7 @@ export default function HomeScreen({ navigation }) {
   const [driverCoords, setDriverCoords] = useState(null);
   const [stations, setStations] = useState([]);
   const [loadingStations, setLoadingStations] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
 
   // Haversine formula for distance
   const getDistance = (lat1, lon1, lat2, lon2) => {
@@ -40,19 +43,27 @@ export default function HomeScreen({ navigation }) {
     return d.toFixed(1) + ' km';
   };
 
-  const fetchStations = async () => {
-    setLoadingStations(true);
+  const { unreadCount, monitorNearestStations } = useNotifications();
+
+  const fetchStations = async (silent = false) => {
+    if (!silent) setLoadingStations(true);
     try {
       const apiUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
       const res = await fetch(`${apiUrl}/api/users/stations`);
       if (res.ok) {
         const data = await res.json();
+        // console.log('Fetched stations:', data); // Silenced to avoid console spam
         setStations(data);
+        setFetchError(null);
+      } else {
+        console.log('Failed to fetch stations, status:', res.status);
+        setFetchError(`Server returned status: ${res.status}`);
       }
     } catch (e) {
       console.error('Error fetching stations:', e);
+      setFetchError(e.message || 'Network request failed');
     } finally {
-      setLoadingStations(false);
+      if (!silent) setLoadingStations(false);
     }
   };
 
@@ -62,7 +73,25 @@ export default function HomeScreen({ navigation }) {
     }, [])
   );
 
+  // Background polling for notifications
   useEffect(() => {
+    const intervalId = setInterval(() => {
+      fetchStations(true); // silent fetch
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(intervalId);
+  }, []);
+
+  // Monitor nearest stations when data changes
+  useEffect(() => {
+    if (driverCoords && stations.length > 0) {
+      monitorNearestStations(driverCoords, stations);
+    }
+  }, [stations, driverCoords, monitorNearestStations]);
+
+  useEffect(() => {
+    let locationSubscription = null;
+
     (async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
@@ -71,48 +100,62 @@ export default function HomeScreen({ navigation }) {
       }
 
       try {
-        let location = await Location.getCurrentPositionAsync({});
-        setDriverCoords({ lat: location.coords.latitude, lng: location.coords.longitude });
-        
-        let geocode = await Location.reverseGeocodeAsync({
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-        });
+        locationSubscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.Balanced,
+            timeInterval: 10000, // 10 seconds
+            distanceInterval: 50, // 50 meters
+          },
+          async (location) => {
+            setDriverCoords({ lat: location.coords.latitude, lng: location.coords.longitude });
+            
+            let geocode = await Location.reverseGeocodeAsync({
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude,
+            });
 
-        let displayCity = '';
-        let displayRegion = '';
+            let displayCity = '';
+            let displayRegion = '';
 
-        if (geocode && geocode.length > 0) {
-          const { city, region, country, district, subregion, name } = geocode[0];
-          displayCity = city || district || subregion || name;
-          displayRegion = region || country;
-        }
+            if (geocode && geocode.length > 0) {
+              const { city, region, country, district, subregion, name } = geocode[0];
+              displayCity = subregion || city || district || name;
+              displayRegion = region || country;
+            }
 
-        // Fallback to a free geocoding API if expo-location on web fails or returns empty
-        if (!displayCity) {
-          try {
-            const response = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${location.coords.latitude}&longitude=${location.coords.longitude}&localityLanguage=en`);
-            const data = await response.json();
-            displayCity = data.city || data.locality || data.principalSubdivision;
-            displayRegion = data.principalSubdivision || data.countryName;
-          } catch (e) {
-            console.error('Fallback geocoding failed', e);
+            // Fallback to a free geocoding API if expo-location on web fails or returns empty
+            if (!displayCity) {
+              try {
+                const response = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${location.coords.latitude}&longitude=${location.coords.longitude}&localityLanguage=en`);
+                const data = await response.json();
+                displayCity = data.locality || data.city || data.principalSubdivision;
+                displayRegion = data.principalSubdivision || data.countryName;
+              } catch (e) {
+                console.error('Fallback geocoding failed', e);
+              }
+            }
+
+            displayCity = displayCity || 'Unknown Location';
+            displayRegion = displayRegion || '';
+              
+            if (displayRegion && displayRegion !== displayCity) {
+              setLocationText(`${displayCity}, ${displayRegion}`);
+            } else {
+              setLocationText(displayCity);
+            }
           }
-        }
-
-        displayCity = displayCity || 'Unknown Location';
-        displayRegion = displayRegion || '';
-          
-        if (displayRegion && displayRegion !== displayCity) {
-          setLocationText(`${displayCity}, ${displayRegion}`);
-        } else {
-          setLocationText(displayCity);
-        }
+        );
       } catch (error) {
-        console.error('Error fetching location:', error);
-        setLocationText('Failed to get location');
+        console.error('Error setting up location watcher:', error);
+        setLocationText('Failed to track location');
       }
     })();
+
+    return () => {
+      if (locationSubscription) {
+        locationSubscription.remove();
+      }
+    };
   }, []);
 
   // Map real database stations to FuelStationCard props
@@ -121,7 +164,8 @@ export default function HomeScreen({ navigation }) {
       id: s.id,
       name: s.displayName || 'Unknown Station',
       address: s.address || s.city || 'Unknown Address',
-      distance: driverCoords ? getDistance(driverCoords.lat, driverCoords.lng, s.location?.lat, s.location?.lng) : 'Calc...',
+      location: s.location,
+      distanceKm: driverCoords ? getDistance(driverCoords.lat, driverCoords.lng, s.location?.lat, s.location?.lng) : 'Calc...',
       isOpen: s.isOpen !== undefined ? s.isOpen : true,
       availability: s.availability || {
         petrol92: true,
@@ -130,11 +174,13 @@ export default function HomeScreen({ navigation }) {
         superdiesel: false,
         kerosene: true,
       },
-      queue: {
-        status: s.queueStatus || 'LOW',
-        count: s.queueCount || 0
-      },
-      lastUpdated: s.lastUpdated ? 'Just now' : 'Unknown' // Ideally parse dates properly
+      queue: s.queueStatus || 'LOW',
+      queueCount: s.queueCount || 0,
+      lastUpdated: s.lastUpdated ? 'Just now' : 'Unknown',
+      image: 'https://images.unsplash.com/photo-1545262810-77515befe149?w=900&q=80',
+      rating: '5.0',
+      reviews: 1,
+      waitMinutes: (s.queueStatus === 'HIGH' ? 45 : (s.queueStatus === 'MEDIUM' ? 15 : 5))
     };
   });
 
@@ -145,6 +191,8 @@ export default function HomeScreen({ navigation }) {
     const matchesFuel = !activeFuel || s.availability[activeFuel];
     return matchesSearch && matchesFuel;
   });
+
+  console.log('Filtered stations length:', filteredStations.length);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -160,7 +208,11 @@ export default function HomeScreen({ navigation }) {
           </View>
           <TouchableOpacity style={styles.bellBtn} onPress={() => navigation.navigate('Notifications')}>
             <MaterialIcons name="notifications-none" size={22} color={colors.textPrimary} />
-            <View style={styles.bellDot} />
+            {unreadCount > 0 && (
+              <View style={styles.bellDot}>
+                <Text style={{color: colors.white, fontSize: 8, fontWeight: 'bold'}}>{unreadCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -228,13 +280,15 @@ export default function HomeScreen({ navigation }) {
         {/* Station list */}
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>Nearby Fuel Stations</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('NearbyStations')}>
+          <TouchableOpacity onPress={() => navigation.navigate('NearbyStations', { stations: formattedStations })}>
             <Text style={styles.seeAll}>See All</Text>
           </TouchableOpacity>
         </View>
 
         {loadingStations ? (
           <Text style={{ textAlign: 'center', marginVertical: 20, color: colors.textMuted }}>Loading stations...</Text>
+        ) : fetchError ? (
+          <Text style={{ textAlign: 'center', marginVertical: 20, color: colors.error }}>{fetchError}</Text>
         ) : filteredStations.length === 0 ? (
           <Text style={{ textAlign: 'center', marginVertical: 20, color: colors.textMuted }}>No stations found.</Text>
         ) : (
@@ -242,7 +296,8 @@ export default function HomeScreen({ navigation }) {
             <FuelStationCard
               key={station.id}
               station={station}
-              onPress={() => navigation.navigate('StationDetails', { stationId: station.id })}
+              driverCoords={driverCoords}
+              onPress={() => navigation.navigate('StationDetails', { station, driverCoords })}
             />
           ))
         )}
@@ -292,12 +347,17 @@ const styles = StyleSheet.create({
   },
   bellDot: {
     position: 'absolute',
-    top: 9,
-    right: 10,
-    width: 7,
-    height: 7,
-    borderRadius: 4,
+    top: 6,
+    right: 8,
+    minWidth: 14,
+    height: 14,
+    paddingHorizontal: 2,
+    borderRadius: 7,
     backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.surfaceMuted,
   },
   searchRow: {
     flexDirection: 'row',

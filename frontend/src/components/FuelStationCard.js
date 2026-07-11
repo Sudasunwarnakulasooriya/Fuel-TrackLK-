@@ -1,11 +1,42 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, radii, fontSizes, spacing, shadow } from '../theme/theme';
 import { queueStatus } from '../data/mockData';
 
-export default function FuelStationCard({ station, onPress }) {
+export default function FuelStationCard({ station, onPress, driverCoords }) {
   const status = queueStatus[station.queue];
+  const [realDistance, setRealDistance] = useState(station.distanceKm);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (driverCoords && station.location) {
+      const lat1 = driverCoords.lat;
+      const lon1 = driverCoords.lng;
+      const lat2 = station.location?.lat;
+      const lon2 = station.location?.lng;
+
+      if (!lat1 || !lon1 || !lat2 || !lon2) return;
+
+      fetch(`http://router.project-osrm.org/route/v1/driving/${lon1},${lat1};${lon2},${lat2}?overview=false`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.routes && data.routes.length > 0 && isMounted) {
+            const distanceMeters = data.routes[0].distance;
+            const distanceKm = distanceMeters / 1000;
+            setRealDistance(distanceKm.toFixed(1) + ' km');
+          }
+        })
+        .catch(err => console.log('OSRM routing error in card:', err));
+    }
+    return () => { isMounted = false; };
+  }, [driverCoords, station.location]);
+
+  // Strip extra "km" if present in realDistance
+  let displayDistance = realDistance || 'Calc...';
+  if (displayDistance && typeof displayDistance === 'string' && displayDistance.endsWith('km')) {
+    displayDistance = displayDistance.replace(' km', '').trim();
+  }
 
   return (
     <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={styles.card}>
@@ -22,7 +53,7 @@ export default function FuelStationCard({ station, onPress }) {
 
         <View style={styles.metaRow}>
           <MaterialIcons name="place" size={14} color={colors.textSecondary} />
-          <Text style={styles.metaText}>{station.distanceKm} km · {station.address}</Text>
+          <Text style={styles.metaText}>{displayDistance} km · {station.address}</Text>
         </View>
 
         <View style={styles.bottomRow}>

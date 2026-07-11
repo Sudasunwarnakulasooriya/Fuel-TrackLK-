@@ -6,9 +6,9 @@ import { savedAddresses } from '../data/mockData';
 import { useAuth } from '../context/AuthContext';
 
 const MENU_ITEMS = [
+  { id: 'settings', label: 'General Settings', icon: 'settings', screen: 'GeneralSettings' },
   { id: 'account', label: 'Manage Account', icon: 'person-outline', screen: 'ManageAccount' },
-  { id: 'history', label: 'Report History', icon: 'history', screen: 'ReportHistory' },
-  { id: 'vehicles', label: 'My Vehicles', icon: 'directions-car', screen: 'MyVehicles' },
+  { id: 'qr', label: 'My QR', icon: 'qr-code', screen: 'MyQR' },
   { id: 'addresses', label: 'Saved Locations', icon: 'place', screen: 'Addresses' },
   { id: 'notifications', label: 'Notification Settings', icon: 'notifications-none', screen: 'NotificationSettings' },
   { id: 'help', label: 'Help & Support', icon: 'help-outline', screen: 'HelpSupport' },
@@ -27,9 +27,6 @@ export default function ProfileScreen({ navigation }) {
           <View style={{ flex: 1 }}>
             <Text style={styles.name}>{user.name || user.displayName || 'No Name'}</Text>
             <Text style={styles.email}>{user.email}</Text>
-            <Text style={styles.vehicle}>
-              {user.vehicle || (user.registrationNumber ? `Vehicle - ${user.registrationNumber}` : '')}
-            </Text>
           </View>
         </View>
 

@@ -1,14 +1,256 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, SafeAreaView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, SafeAreaView, Modal, TextInput, ActivityIndicator, FlatList, Alert, Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, fontSizes, spacing, radii, shadow } from '../theme/theme';
-import { fuelStations, fuelTypes, queueStatus } from '../data/mockData';
+import { fuelTypes, queueStatus } from '../data/mockData';
 import PrimaryButton from '../components/PrimaryButton';
+import { useAuth } from '../context/AuthContext';
+import * as Location from 'expo-location';
+import { GlobalAlertRef } from '../components/GlobalAlert';
 
 export default function StationDetailsScreen({ route, navigation }) {
-  const { stationId } = route.params;
-  const station = fuelStations.find((s) => s.id === stationId) || fuelStations[0];
-  const status = queueStatus[station.queue];
+  const { station, driverCoords } = route.params;
+  const { user } = useAuth();
+  const status = queueStatus[station.queue] || queueStatus['LOW'];
+
+  const [reviewsModalVisible, setReviewsModalVisible] = useState(false);
+  const [reviews, setReviews] = useState([]);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [submittingReview, setSubmittingReview] = useState(false);
+  
+  const [newRating, setNewRating] = useState(0);
+  const [newComment, setNewComment] = useState('');
+  const [editingReviewId, setEditingReviewId] = useState(null);
+  
+  // Real-time rating values if updated locally
+  const [currentRating, setCurrentRating] = useState(station.rating || "0.0");
+  const [currentReviewCount, setCurrentReviewCount] = useState(station.reviews || 0);
+
+  const [realDistance, setRealDistance] = useState(station.distanceKm || 'Calc...');
+  const [travelTime, setTravelTime] = useState('Calc...');
+
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+    const R = 6371; 
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  const fetchRouteData = async (lat1, lon1, lat2, lon2) => {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return;
+    try {
+      const res = await fetch(`http://router.project-osrm.org/route/v1/driving/${lon1},${lat1};${lon2},${lat2}?overview=false`);
+      const data = await res.json();
+
+      if (data.routes && data.routes.length > 0) {
+        const distanceMeters = data.routes[0].distance;
+        const durationSeconds = data.routes[0].duration;
+
+        const distanceKm = distanceMeters / 1000;
+        const timeMins = Math.round(durationSeconds / 60);
+
+        setRealDistance(distanceKm.toFixed(1) + ' km');
+        setTravelTime(timeMins > 0 ? `${timeMins} min` : '< 1 min');
+      } else {
+         // Fallback to Haversine
+         const dist = calculateDistance(lat1, lon1, lat2, lon2);
+         if (dist !== null) {
+           setRealDistance(dist.toFixed(1) + ' km');
+           const timeMins = Math.round(dist * 2);
+           setTravelTime(timeMins > 0 ? `${timeMins} min` : '< 1 min');
+         }
+      }
+    } catch (err) {
+      console.log('OSRM routing error:', err);
+      // Fallback
+      const dist = calculateDistance(lat1, lon1, lat2, lon2);
+      if (dist !== null) {
+        setRealDistance(dist.toFixed(1) + ' km');
+        const timeMins = Math.round(dist * 2);
+        setTravelTime(timeMins > 0 ? `${timeMins} min` : '< 1 min');
+      }
+    }
+  };
+
+  useEffect(() => {
+    // Immediately calculate using driverCoords from HomeScreen for instantly snappy UI
+    if (driverCoords && station.location) {
+      fetchRouteData(driverCoords.lat, driverCoords.lng, station.location.lat, station.location.lng);
+    }
+
+    let locationSubscription = null;
+
+    (async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+
+      try {
+        locationSubscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.Balanced,
+            timeInterval: 10000,
+            distanceInterval: 50,
+          },
+          (location) => {
+            const lat1 = location.coords.latitude;
+            const lon1 = location.coords.longitude;
+            const lat2 = station.location?.lat;
+            const lon2 = station.location?.lng;
+            fetchRouteData(lat1, lon1, lat2, lon2);
+          }
+        );
+      } catch (error) {
+        console.error('Error watching location:', error);
+      }
+    })();
+
+    return () => {
+      if (locationSubscription) {
+        locationSubscription.remove();
+      }
+    };
+  }, [station.location, driverCoords]);
+
+  useEffect(() => {
+    fetchReviews();
+  }, []);
+
+  const fetchReviews = async () => {
+    try {
+      setLoadingReviews(true);
+      const apiUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+      const res = await fetch(`${apiUrl}/api/stations/${station.id}/reviews`);
+      if (res.ok) {
+        const data = await res.json();
+        setReviews(data);
+        
+        if (data.length > 0) {
+          const totalRating = data.reduce((sum, r) => sum + r.rating, 0);
+          setCurrentRating((totalRating / data.length).toFixed(1));
+          setCurrentReviewCount(data.length);
+        } else {
+          setCurrentRating('0.0');
+          setCurrentReviewCount(0);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching reviews:', error);
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
+
+  const submitReview = async () => {
+    if (newRating === 0) {
+      Alert.alert('Rating Required', 'Please select a star rating.');
+      return;
+    }
+
+    try {
+      setSubmittingReview(true);
+      const apiUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+      
+      const method = editingReviewId ? 'PUT' : 'POST';
+      const endpoint = editingReviewId 
+        ? `${apiUrl}/api/stations/${station.id}/reviews/${editingReviewId}`
+        : `${apiUrl}/api/stations/${station.id}/reviews`;
+
+      const res = await fetch(endpoint, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user?.uid || 'anonymous',
+          userName: user?.displayName || 'Driver',
+          rating: newRating,
+          comment: newComment
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        
+        if (editingReviewId) {
+          // Update the existing review in the list
+          setReviews(reviews.map(r => r.id === editingReviewId ? data.review : r));
+          
+          // Re-fetch to get correct average rating from backend
+          fetchReviews();
+          Alert.alert('Success', 'Your review has been updated!');
+        } else {
+          setReviews([data.review, ...reviews]);
+          fetchReviews(); // Re-fetch to guarantee correct sync
+          Alert.alert('Success', 'Your review has been added!');
+        }
+
+        setNewRating(0);
+        setNewComment('');
+        setEditingReviewId(null);
+      } else {
+        const err = await res.json();
+        Alert.alert('Error', err.error || 'Failed to submit review');
+      }
+    } catch (error) {
+      console.error('Error submitting review:', error);
+      Alert.alert('Error', 'Network error while submitting review');
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  const handleEditReview = (review) => {
+    setEditingReviewId(review.id);
+    setNewRating(review.rating);
+    setNewComment(review.comment || '');
+  };
+
+  const cancelEdit = () => {
+    setEditingReviewId(null);
+    setNewRating(0);
+    setNewComment('');
+  };
+
+  const deleteReview = async (reviewId) => {
+    const doDelete = async () => {
+      try {
+        setLoadingReviews(true);
+        const apiUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+        const res = await fetch(`${apiUrl}/api/stations/${station.id}/reviews/${reviewId}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user?.uid })
+        });
+
+        if (res.ok) {
+          setReviews(reviews.filter(r => r.id !== reviewId));
+          fetchReviews(); // To update the average stats
+          if (editingReviewId === reviewId) {
+            cancelEdit();
+          }
+        } else {
+          const err = await res.json();
+          Alert.alert('Error', err.error || 'Failed to delete review');
+        }
+      } catch (error) {
+        console.error('Error deleting review:', error);
+        Alert.alert('Error', 'Network error while deleting review');
+      } finally {
+        setLoadingReviews(false);
+      }
+    };
+
+    GlobalAlertRef.current?.confirm(
+      "Delete Review",
+      "Are you sure you want to delete your review?",
+      doDelete
+    );
+  };
+
 
   return (
     <View style={styles.container}>
@@ -48,22 +290,22 @@ export default function StationDetailsScreen({ route, navigation }) {
 
           {/* Stats row */}
           <View style={styles.statsRow}>
-            <View style={styles.statBox}>
+            <TouchableOpacity style={styles.statBox} onPress={() => setReviewsModalVisible(true)}>
               <MaterialIcons name="star" size={18} color="#F2A93B" />
-              <Text style={styles.statValue}>{station.rating}</Text>
-              <Text style={styles.statLabel}>{station.reviews} reviews</Text>
-            </View>
+              <Text style={styles.statValue}>{currentRating}</Text>
+              <Text style={styles.statLabel}>{currentReviewCount} reviews</Text>
+            </TouchableOpacity>
             <View style={styles.statDivider} />
             <View style={styles.statBox}>
               <MaterialIcons name="directions-car" size={18} color={colors.primary} />
-              <Text style={styles.statValue}>{station.distanceKm} km</Text>
+              <Text style={styles.statValue}>{realDistance}</Text>
               <Text style={styles.statLabel}>away</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statBox}>
               <MaterialIcons name="hourglass-bottom" size={18} color={colors.primary} />
-              <Text style={styles.statValue}>{station.waitMinutes} min</Text>
-              <Text style={styles.statLabel}>wait time</Text>
+              <Text style={styles.statValue}>{travelTime}</Text>
+              <Text style={styles.statLabel}>travel time</Text>
             </View>
           </View>
 
@@ -71,7 +313,7 @@ export default function StationDetailsScreen({ route, navigation }) {
           <Text style={styles.sectionTitle}>Fuel Availability</Text>
           <View style={styles.fuelGrid}>
             {fuelTypes.map((type) => {
-              const available = station.availability[type.id];
+              const available = station.availability ? station.availability[type.id] : false;
               return (
                 <View key={type.id} style={styles.fuelItem}>
                   <View
@@ -103,13 +345,6 @@ export default function StationDetailsScreen({ route, navigation }) {
             </View>
             <View style={styles.queueCardRight}>
               <Text style={styles.queueCardUpdated}>Updated {station.lastUpdated}</Text>
-              <TouchableOpacity
-                style={styles.reportLink}
-                onPress={() => navigation.navigate('ReportQueue', { stationId: station.id })}
-              >
-                <Text style={styles.reportLinkText}>Report queue</Text>
-                <MaterialIcons name="arrow-forward" size={14} color={colors.primary} />
-              </TouchableOpacity>
             </View>
           </View>
 
@@ -131,12 +366,120 @@ export default function StationDetailsScreen({ route, navigation }) {
           style={{ flex: 1 }}
           onPress={() => navigation.navigate('TrackQueue', { stationId: station.id })}
         />
-        <PrimaryButton
-          title="Report Queue"
-          style={{ flex: 1.4 }}
-          onPress={() => navigation.navigate('ReportQueue', { stationId: station.id })}
-        />
       </View>
+
+      {/* Reviews Modal */}
+      <Modal
+        visible={reviewsModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setReviewsModalVisible(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setReviewsModalVisible(false)} style={styles.closeBtn}>
+              <MaterialIcons name="close" size={24} color={colors.textPrimary} />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Reviews</Text>
+            <View style={{ width: 24 }} />
+          </View>
+
+          <View style={styles.addReviewSection}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={styles.addReviewTitle}>{editingReviewId ? "Edit Review" : "Leave a Review"}</Text>
+              {editingReviewId && (
+                <TouchableOpacity onPress={cancelEdit}>
+                  <Text style={{ color: colors.danger, fontSize: fontSizes.sm, fontWeight: '600' }}>Cancel</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <View style={styles.starsRow}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <TouchableOpacity key={star} onPress={() => setNewRating(star)}>
+                  <MaterialIcons
+                    name={star <= newRating ? "star" : "star-border"}
+                    size={32}
+                    color="#F2A93B"
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TextInput
+              style={styles.reviewInput}
+              placeholder="Write your comment here..."
+              value={newComment}
+              onChangeText={setNewComment}
+              multiline
+              numberOfLines={3}
+            />
+            <PrimaryButton
+              title={submittingReview ? "Submitting..." : (editingReviewId ? "Update Review" : "Submit Review")}
+              onPress={submitReview}
+              disabled={submittingReview}
+              style={{ marginTop: spacing.sm }}
+            />
+          </View>
+
+          <View style={styles.reviewsListContainer}>
+            <Text style={styles.sectionTitle}>Past Reviews</Text>
+            {loadingReviews ? (
+              <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 20 }} />
+            ) : reviews.length === 0 ? (
+              <Text style={styles.noReviewsText}>No reviews yet. Be the first!</Text>
+            ) : (
+              <FlatList
+                data={reviews}
+                keyExtractor={(item) => item.id}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: spacing.xxl }}
+                renderItem={({ item }) => (
+                  <View style={styles.reviewCard}>
+                    <View style={styles.reviewHeader}>
+                      <View style={styles.reviewAvatar}>
+                        <Text style={styles.reviewAvatarText}>{item.userName ? item.userName.charAt(0).toUpperCase() : 'U'}</Text>
+                      </View>
+                      <View style={styles.reviewMeta}>
+                        <Text style={styles.reviewAuthor}>{item.userName || 'Anonymous'}</Text>
+                        <View style={{ flexDirection: 'row' }}>
+                          {[...Array(5)].map((_, i) => (
+                            <MaterialIcons
+                              key={i}
+                              name={i < item.rating ? "star" : "star-border"}
+                              size={14}
+                              color="#F2A93B"
+                            />
+                          ))}
+                        </View>
+                      </View>
+                      <View style={styles.reviewDateContainer}>
+                        <Text style={styles.reviewDate}>
+                          {new Date(item.createdAt).toLocaleDateString()}
+                        </Text>
+                        {item.updatedAt && (
+                          <Text style={styles.editedTag}>(Edited)</Text>
+                        )}
+                      </View>
+                      {item.userId === user?.uid && (
+                        <View style={styles.reviewActions}>
+                          <TouchableOpacity onPress={() => handleEditReview(item)} style={styles.actionBtn}>
+                            <MaterialIcons name="edit" size={16} color={colors.primary} />
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => deleteReview(item.id)} style={styles.actionBtn}>
+                            <MaterialIcons name="delete-outline" size={16} color={colors.danger} />
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </View>
+                    {!!item.comment && (
+                      <Text style={styles.reviewCommentText}>{item.comment}</Text>
+                    )}
+                  </View>
+                )}
+              />
+            )}
+          </View>
+        </SafeAreaView>
+      </Modal>
     </View>
   );
 }
@@ -244,6 +587,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     paddingVertical: spacing.md,
     marginBottom: spacing.lg,
+    ...shadow.card,
   },
   statBox: {
     flex: 1,
@@ -364,4 +708,126 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     backgroundColor: colors.white,
   },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderColor: colors.border,
+  },
+  modalTitle: {
+    fontSize: fontSizes.lg,
+    fontWeight: '800',
+    color: colors.textPrimary,
+  },
+  closeBtn: {
+    padding: 4,
+  },
+  addReviewSection: {
+    padding: spacing.lg,
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderColor: colors.border,
+  },
+  addReviewTitle: {
+    fontSize: fontSizes.md,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+  },
+  starsRow: {
+    flexDirection: 'row',
+    gap: 4,
+    marginBottom: spacing.md,
+  },
+  reviewInput: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    fontSize: fontSizes.sm,
+    color: colors.textPrimary,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  reviewsListContainer: {
+    flex: 1,
+    padding: spacing.lg,
+  },
+  noReviewsText: {
+    fontSize: fontSizes.sm,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.xl,
+  },
+  reviewCard: {
+    backgroundColor: colors.white,
+    padding: spacing.md,
+    borderRadius: radii.lg,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  reviewAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.primaryTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  reviewAvatarText: {
+    color: colors.primary,
+    fontWeight: '700',
+    fontSize: fontSizes.md,
+  },
+  reviewMeta: {
+    flex: 1,
+  },
+  reviewAuthor: {
+    fontSize: fontSizes.sm,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  reviewDate: {
+    fontSize: 10,
+    color: colors.textMuted,
+  },
+  reviewCommentText: {
+    fontSize: fontSizes.sm,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  reviewDateContainer: {
+    alignItems: 'flex-end',
+  },
+  editedTag: {
+    fontSize: 9,
+    color: colors.textMuted,
+    fontStyle: 'italic',
+    marginTop: 2,
+  },
+  reviewActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginLeft: spacing.sm,
+  },
+  actionBtn: {
+    padding: 4,
+  }
 });
