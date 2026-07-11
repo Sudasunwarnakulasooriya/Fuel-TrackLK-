@@ -31,9 +31,9 @@ exports.registerUser = async (req, res) => {
         displayName: displayName || '',
       });
     } catch (authError) {
-      // If user already exists, we might want to just update the DB, or fail
+      // If user already exists, prevent overwriting
       if (authError.code === 'auth/email-already-exists') {
-        userRecord = await auth.getUserByEmail(email);
+        return res.status(400).json({ error: 'An account with this email already exists.' });
       } else {
         throw authError;
       }

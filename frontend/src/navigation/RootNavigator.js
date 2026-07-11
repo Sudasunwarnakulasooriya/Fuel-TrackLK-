@@ -17,7 +17,6 @@ import StationDashboard from '../screens/StationDashboard';
 import MainTabs from './MainTabs';
 import StationDetailsScreen from '../screens/StationDetailsScreen';
 import NearbyStationsScreen from '../screens/NearbyStationsScreen';
-import ReportQueueScreen from '../screens/ReportQueueScreen';
 import TrackQueueScreen from '../screens/TrackQueueScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import AddressesScreen from '../screens/AddressesScreen';
@@ -26,10 +25,12 @@ import NotificationsScreen from '../screens/NotificationsScreen';
 
 // Profile sub-screens
 import ManageAccountScreen from '../screens/ManageAccountScreen';
-import ReportHistoryScreen from '../screens/ReportHistoryScreen';
+import GeneralSettingsScreen from '../screens/GeneralSettingsScreen';
 import MyVehiclesScreen from '../screens/MyVehiclesScreen';
+import MyQRScreen from '../screens/MyQRScreen';
 import NotificationSettingsScreen from '../screens/NotificationSettingsScreen';
 import HelpSupportScreen from '../screens/HelpSupportScreen';
+import StationReviewsScreen from '../screens/StationReviewsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -63,12 +64,12 @@ function AppStack() {
       <Stack.Screen name="MainTabs" component={MainTabs} />
       <Stack.Screen name="StationDetails" component={StationDetailsScreen} />
       <Stack.Screen name="NearbyStations" component={NearbyStationsScreen} />
-      <Stack.Screen name="ReportQueue" component={ReportQueueScreen} />
       <Stack.Screen name="TrackQueue" component={TrackQueueScreen} />
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="ManageAccount" component={ManageAccountScreen} />
-      <Stack.Screen name="ReportHistory" component={ReportHistoryScreen} />
+      <Stack.Screen name="GeneralSettings" component={GeneralSettingsScreen} />
       <Stack.Screen name="MyVehicles" component={MyVehiclesScreen} />
+      <Stack.Screen name="MyQR" component={MyQRScreen} />
       <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
       <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
       <Stack.Screen name="Addresses" component={AddressesScreen} />
@@ -88,6 +89,7 @@ function StationStack() {
       <Stack.Screen name="ManageAccount" component={ManageAccountScreen} />
       <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
       <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
+      <Stack.Screen name="StationReviews" component={StationReviewsScreen} />
     </Stack.Navigator>
   );
 }

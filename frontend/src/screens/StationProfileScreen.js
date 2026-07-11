@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 
 const MENU_ITEMS = [
   { id: 'account', label: 'Manage Station Account', icon: 'store', screen: 'ManageAccount' },
+  { id: 'reviews', label: 'Station Reviews', icon: 'star-rate', screen: 'StationReviews' },
   { id: 'notifications', label: 'Notification Settings', icon: 'notifications-none', screen: 'NotificationSettings' },
   { id: 'help', label: 'Help & Support', icon: 'help-outline', screen: 'HelpSupport' },
 ];

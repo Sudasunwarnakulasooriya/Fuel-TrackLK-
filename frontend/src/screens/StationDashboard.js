@@ -1,5 +1,6 @@
+import { GlobalAlertRef } from '../components/GlobalAlert';
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, Switch, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, Switch, TouchableOpacity, TextInput, Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, fontSizes, spacing, radii } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
@@ -76,13 +77,13 @@ export default function StationDashboard() {
         })
       });
       if (res.ok) {
-        alert('Station updates saved successfully!');
+        GlobalAlertRef.current?.alert('Notice', 'Station updates saved successfully!');
       } else {
-        alert('Failed to save updates');
+        GlobalAlertRef.current?.alert('Notice', 'Failed to save updates');
       }
     } catch (e) {
       console.error(e);
-      alert('Error saving updates');
+      GlobalAlertRef.current?.alert('Notice', 'Error saving updates');
     }
     setLoading(false);
   };
