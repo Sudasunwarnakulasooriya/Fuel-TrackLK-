@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { MaterialIcons, FontAwesome } from '@expo/vector-icons';
 import { colors, fontSizes, spacing, radii } from '../theme/theme';
@@ -97,8 +98,16 @@ export default function LoginScreen({ navigation }) {
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <Text style={styles.title}>Log in</Text>
-          <Text style={styles.brand}>FuelTrack LK</Text>
+          <View style={styles.headerRow}>
+            <View>
+              <Text style={styles.title}>Log in</Text>
+              <Text style={styles.brand}>FuelTrack LK</Text>
+            </View>
+            <Image 
+              source={require('../../assets/icon.png')} 
+              style={styles.logo}
+            />
+          </View>
 
           <View style={{ zIndex: 10, position: 'relative' }}>
             <InputField
@@ -154,7 +163,7 @@ export default function LoginScreen({ navigation }) {
               </View>
               <Text style={styles.rememberText}>Remember me</Text>
             </TouchableOpacity>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
               <Text style={styles.forgotText}>Forgot your password?</Text>
             </TouchableOpacity>
           </View>
@@ -214,7 +223,19 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.sm,
     color: colors.primary,
     fontWeight: '700',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: spacing.lg,
+  },
+  logo: {
+    width: 50,
+    height: 50,
+    resizeMode: 'contain',
+    borderRadius: 25,
+    overflow: 'hidden',
   },
   optionsRow: {
     flexDirection: 'row',

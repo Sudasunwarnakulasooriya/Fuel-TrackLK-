@@ -17,9 +17,8 @@ export default function NearbyStationsScreen({ route, navigation }) {
   const [filter, setFilter] = useState('all');
   const [stations, setStations] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [driverCoords, setDriverCoords] = useState(null);
-
-  const { stations: passedStations } = route.params || {};
+  const { stations: passedStations, driverCoords: passedCoords } = route.params || {};
+  const [driverCoords, setDriverCoords] = useState(passedCoords || null);
 
   // Haversine formula for distance
   const getDistance = (lat1, lon1, lat2, lon2) => {
@@ -68,6 +67,7 @@ export default function NearbyStationsScreen({ route, navigation }) {
               id: s.id,
               name: s.displayName || 'Unknown Station',
               address: s.address || s.city || 'Unknown Address',
+              location: s.location,
               distanceKm: driverCoords ? getDistance(driverCoords.lat, driverCoords.lng, s.location?.lat, s.location?.lng) : 'Calc...',
               isOpen: s.isOpen !== undefined ? s.isOpen : true,
               availability: s.availability || { petrol92: true, petrol95: true, diesel: true, superdiesel: false, kerosene: true },

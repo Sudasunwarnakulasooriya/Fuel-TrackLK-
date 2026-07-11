@@ -13,6 +13,7 @@ import SuccessScreen from '../screens/SuccessScreen';
 import RoleSelectionScreen from '../screens/RoleSelectionScreen';
 import SignUpStationScreen from '../screens/SignUpStationScreen';
 import StationDashboard from '../screens/StationDashboard';
+import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 
 import MainTabs from './MainTabs';
 import StationDetailsScreen from '../screens/StationDetailsScreen';
@@ -43,6 +44,7 @@ function AuthStack() {
       <Stack.Screen name="SignUp" component={SignUpScreen} />
       <Stack.Screen name="SignUpStation" component={SignUpStationScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
       <Stack.Screen name="Verify" component={VerifyScreen} />
       <Stack.Screen
         name="VerifySuccess"

@@ -11,6 +11,7 @@ import {
   Image,
   FlatList,
   Platform,
+  Keyboard,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, fontSizes, spacing, radii, shadow } from '../theme/theme';
@@ -18,10 +19,15 @@ import { fuelTypes, currentUser } from '../data/mockData';
 import FuelStationCard from '../components/FuelStationCard';
 import * as Location from 'expo-location';
 import { useNotifications } from '../context/NotificationContext';
+import { useAuth } from '../context/AuthContext';
 
 export default function HomeScreen({ navigation }) {
+  const { user } = useAuth();
   const [activeFuel, setActiveFuel] = useState(null);
-  const [search, setSearch] = useState('');
+  const [expandFuelTypes, setExpandFuelTypes] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeSearch, setActiveSearch] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [locationText, setLocationText] = useState('Locating...');
   const [driverCoords, setDriverCoords] = useState(null);
   const [stations, setStations] = useState([]);
@@ -186,13 +192,31 @@ export default function HomeScreen({ navigation }) {
 
   const filteredStations = formattedStations.filter((s) => {
     const matchesSearch =
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.address.toLowerCase().includes(search.toLowerCase());
+      s.name.toLowerCase().includes(activeSearch.toLowerCase()) ||
+      s.address.toLowerCase().includes(activeSearch.toLowerCase());
     const matchesFuel = !activeFuel || s.availability[activeFuel];
     return matchesSearch && matchesFuel;
   });
+  let sortedStations = [...filteredStations];
+  if (!activeSearch && !activeFuel) {
+    const savedStations = user?.savedStations || [];
+    sortedStations.sort((a, b) => {
+      const aSaved = savedStations.includes(a.id);
+      const bSaved = savedStations.includes(b.id);
+      if (aSaved && !bSaved) return -1;
+      if (!aSaved && bSaved) return 1;
+      return 0;
+    });
+  }
 
-  console.log('Filtered stations length:', filteredStations.length);
+  const suggestions = (searchQuery && showSuggestions)
+    ? formattedStations
+        .filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.address.toLowerCase().includes(searchQuery.toLowerCase()))
+        .slice(0, 5)
+    : [];
+
+  // Use sortedStations in the UI instead of filteredStations
+  const stationsToDisplay = sortedStations;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -217,50 +241,121 @@ export default function HomeScreen({ navigation }) {
         </View>
 
         {/* Search */}
-        <View style={styles.searchRow}>
-          <MaterialIcons name="search" size={20} color={colors.textSecondary} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search fuel station"
-            placeholderTextColor={colors.textMuted}
-            value={search}
-            onChangeText={setSearch}
-          />
+        <View style={{ zIndex: 10 }}>
+          <View style={styles.searchRow}>
+            <MaterialIcons name="search" size={20} color={colors.textSecondary} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search fuel station"
+              placeholderTextColor={colors.textMuted}
+              value={searchQuery}
+              onChangeText={(text) => {
+                setSearchQuery(text);
+                setShowSuggestions(text.length > 0);
+                if (text === '') setActiveSearch('');
+              }}
+              onSubmitEditing={() => {
+                setActiveSearch(searchQuery);
+                setShowSuggestions(false);
+                Keyboard.dismiss();
+              }}
+              returnKeyType="search"
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => {
+                setActiveSearch(searchQuery);
+                setShowSuggestions(false);
+                Keyboard.dismiss();
+              }} style={{ padding: 4 }}>
+                <MaterialIcons name="arrow-forward" size={20} color={colors.primary} />
+              </TouchableOpacity>
+            )}
+          </View>
+          {showSuggestions && suggestions.length > 0 && (
+            <View style={styles.suggestionsDropdown}>
+              {suggestions.map(s => (
+                <TouchableOpacity 
+                  key={`sugg-${s.id}`}
+                  style={styles.suggestionItem}
+                  onPress={() => {
+                    setSearchQuery(s.name);
+                    setActiveSearch(s.name);
+                    setShowSuggestions(false);
+                    Keyboard.dismiss();
+                  }}
+                >
+                  <MaterialIcons name="location-on" size={16} color={colors.textMuted} />
+                  <Text style={styles.suggestionText}>{s.name} - {s.address}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Categories */}
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>Fuel Types</Text>
-          <TouchableOpacity onPress={() => setActiveFuel(null)}>
-            <Text style={styles.seeAll}>See All</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            {activeFuel && (
+              <TouchableOpacity onPress={() => setActiveFuel(null)}>
+                <Text style={styles.seeAll}>Clear</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity onPress={() => setExpandFuelTypes(!expandFuelTypes)}>
+              <Text style={styles.seeAll}>{expandFuelTypes ? 'Show Less' : 'See All'}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <FlatList
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          data={fuelTypes}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={{ gap: spacing.sm, paddingBottom: spacing.sm }}
-          renderItem={({ item }) => {
-            const active = activeFuel === item.id;
-            return (
-              <TouchableOpacity
-                style={[styles.fuelChip, active && styles.fuelChipActive]}
-                onPress={() => setActiveFuel(active ? null : item.id)}
-              >
-                <MaterialIcons
-                  name={item.icon}
-                  size={18}
-                  color={active ? colors.white : item.color}
-                />
-                <Text style={[styles.fuelChipText, active && styles.fuelChipTextActive]}>
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          }}
-        />
+        {expandFuelTypes ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, paddingBottom: spacing.sm }}>
+            {fuelTypes.map((item) => {
+              const active = activeFuel === item.id;
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[styles.fuelChip, active && styles.fuelChipActive]}
+                  onPress={() => setActiveFuel(active ? null : item.id)}
+                >
+                  <MaterialIcons
+                    name={item.icon}
+                    size={18}
+                    color={active ? colors.white : item.color}
+                  />
+                  <Text style={[styles.fuelChipText, active && styles.fuelChipTextActive]}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ) : (
+          <FlatList
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            data={fuelTypes}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={{ gap: spacing.sm, paddingBottom: spacing.sm }}
+            renderItem={({ item }) => {
+              const active = activeFuel === item.id;
+              return (
+                <TouchableOpacity
+                  style={[styles.fuelChip, active && styles.fuelChipActive]}
+                  onPress={() => setActiveFuel(active ? null : item.id)}
+                >
+                  <MaterialIcons
+                    name={item.icon}
+                    size={18}
+                    color={active ? colors.white : item.color}
+                  />
+                  <Text style={[styles.fuelChipText, active && styles.fuelChipTextActive]}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            }}
+          />
+        )}
 
         {/* Promo banner */}
         <View style={styles.promoBanner}>
@@ -280,7 +375,7 @@ export default function HomeScreen({ navigation }) {
         {/* Station list */}
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>Nearby Fuel Stations</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('NearbyStations', { stations: formattedStations })}>
+          <TouchableOpacity onPress={() => navigation.navigate('NearbyStations', { stations: formattedStations, driverCoords })}>
             <Text style={styles.seeAll}>See All</Text>
           </TouchableOpacity>
         </View>
@@ -290,14 +385,19 @@ export default function HomeScreen({ navigation }) {
         ) : fetchError ? (
           <Text style={{ textAlign: 'center', marginVertical: 20, color: colors.error }}>{fetchError}</Text>
         ) : filteredStations.length === 0 ? (
-          <Text style={{ textAlign: 'center', marginVertical: 20, color: colors.textMuted }}>No stations found.</Text>
+          <View style={{ alignItems: 'center', marginVertical: 40, paddingHorizontal: 20 }}>
+            <MaterialIcons name="search-off" size={48} color={colors.textMuted} />
+            <Text style={{ textAlign: 'center', marginTop: 12, color: colors.textMuted, fontSize: fontSizes.md }}>
+              Couldn't find any stations {activeSearch ? `called "${activeSearch}"` : ''}
+            </Text>
+          </View>
         ) : (
-          filteredStations.map((station) => (
-            <FuelStationCard
-              key={station.id}
-              station={station}
+          stationsToDisplay.map((item) => (
+            <FuelStationCard 
+              key={item.id.toString()}
+              station={item} 
               driverCoords={driverCoords}
-              onPress={() => navigation.navigate('StationDetails', { station, driverCoords })}
+              onPress={() => navigation.navigate('StationDetails', { station: item, driverCoords })} 
             />
           ))
         )}
@@ -372,6 +472,29 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: fontSizes.base,
+    color: colors.textPrimary,
+  },
+  suggestionsDropdown: {
+    position: 'absolute',
+    top: 55,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.white,
+    borderRadius: radii.md,
+    ...shadow.card,
+    zIndex: 100,
+    elevation: 10,
+    paddingVertical: spacing.sm,
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
+  },
+  suggestionText: {
+    fontSize: fontSizes.sm,
     color: colors.textPrimary,
   },
   sectionHeaderRow: {
