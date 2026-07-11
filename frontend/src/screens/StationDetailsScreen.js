@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, SafeAreaView, Modal, TextInput, ActivityIndicator, FlatList, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, SafeAreaView, Modal, TextInput, ActivityIndicator, FlatList, Alert, Platform, Linking } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, fontSizes, spacing, radii, shadow } from '../theme/theme';
 import { fuelTypes, queueStatus } from '../data/mockData';
@@ -10,7 +10,7 @@ import { GlobalAlertRef } from '../components/GlobalAlert';
 
 export default function StationDetailsScreen({ route, navigation }) {
   const { station, driverCoords } = route.params;
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const status = queueStatus[station.queue] || queueStatus['LOW'];
 
   const [reviewsModalVisible, setReviewsModalVisible] = useState(false);
@@ -251,6 +251,48 @@ export default function StationDetailsScreen({ route, navigation }) {
     );
   };
 
+  const handleNavigate = () => {
+    if (!driverCoords || !station.location) {
+      Alert.alert("Location Error", "Cannot determine locations for navigation.");
+      return;
+    }
+
+    const { lat: startLat, lng: startLng } = driverCoords;
+    const { lat: destLat, lng: destLng } = station.location;
+    
+    // Universal Google Maps URL for directions
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${startLat},${startLng}&destination=${destLat},${destLng}&travelmode=driving`;
+    
+    Linking.openURL(url).catch(err => {
+      console.error("Failed to open Google Maps:", err);
+      Alert.alert("Error", "Could not open Google Maps.");
+    });
+  };
+
+  const savedStations = user?.savedStations || [];
+  const isSaved = savedStations.includes(station.id);
+  const [togglingSave, setTogglingSave] = useState(false);
+
+  const toggleSave = async () => {
+    if (!user || !user.uid) return;
+    setTogglingSave(true);
+    try {
+      const apiUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+      const res = await fetch(`${apiUrl}/api/users/${user.uid}/saved-stations`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stationId: station.id })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUser(prev => ({ ...prev, savedStations: data.savedStations }));
+      }
+    } catch (error) {
+      console.error("Error toggling save:", error);
+    } finally {
+      setTogglingSave(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -262,8 +304,8 @@ export default function StationDetailsScreen({ route, navigation }) {
             <TouchableOpacity style={styles.circleBtn} onPress={() => navigation.goBack()}>
               <MaterialIcons name="arrow-back" size={20} color={colors.white} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.circleBtn}>
-              <MaterialIcons name="favorite-border" size={20} color={colors.white} />
+            <TouchableOpacity style={styles.circleBtn} onPress={toggleSave} disabled={togglingSave}>
+              <MaterialIcons name={isSaved ? "favorite" : "favorite-border"} size={20} color={isSaved ? colors.warning : colors.white} />
             </TouchableOpacity>
           </SafeAreaView>
           <View style={styles.heroBottomBadge}>
@@ -364,7 +406,7 @@ export default function StationDetailsScreen({ route, navigation }) {
           variant="outline"
           icon={<MaterialIcons name="navigation" size={18} color={colors.textPrimary} />}
           style={{ flex: 1 }}
-          onPress={() => navigation.navigate('TrackQueue', { stationId: station.id })}
+          onPress={handleNavigate}
         />
       </View>
 

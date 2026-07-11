@@ -157,11 +157,10 @@ export const predictionInsights = [
 
 export const currentUser = {
   id: 'u1',
-  name: 'Sandeepa Gunathunga',
-  email: 'chamindusandeepa88@gmail.com',
-  phone: '+94 77 123 4567',
-  vehicle: 'Car · CAB-4521',
-  avatar: 'https://i.pravatar.cc/150?img=12',
+  name: 'Sudasun Warnakulasooriya',
+  email: 'sudasunwarnakulasooriya@gmail.com',
+  avatar: null, // Let the user upload one
+  savedStations: ['st1', 'st3'],
 };
 
 export const savedAddresses = [

@@ -14,6 +14,14 @@ router.post('/send-otp', userController.sendOtp);
 // POST /api/users/verify-otp
 router.post('/verify-otp', userController.verifyOtp);
 
+// POST /api/users/reset-password
+router.post('/reset-password', userController.resetPassword);
+
+// POST /api/users/support
+router.post('/support', userController.sendSupportEmail);
+
+// PUT /api/users/:uid/saved-stations
+router.put('/:uid/saved-stations', userController.toggleSavedStation);
 
 // GET /api/users/stations
 router.get('/stations', userController.getAllStations);

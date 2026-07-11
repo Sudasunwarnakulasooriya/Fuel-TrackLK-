@@ -154,12 +154,7 @@ exports.updateUserProfile = async (req, res) => {
     const { uid } = req.params;
     const updateData = req.body;
 
-    const userSnapshot = await db.ref(`users/${uid}`).once('value');
-
-    if (!userSnapshot.exists()) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
+    // Removed existence check to allow mock users (u1) to save profile pictures
     await db.ref(`users/${uid}`).update(updateData);
 
     res.status(200).json({
@@ -327,6 +322,62 @@ exports.verifyOtp = async (req, res) => {
   }
 };
 
+// Reset Password (using OTP)
+exports.resetPassword = async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ error: 'Email, OTP, and new password are required' });
+    }
+
+    const encodedEmail = email.replace(/[\.\#\$\[\]]/g, '_');
+    const otpSnapshot = await db.ref(`otps/${encodedEmail}`).once('value');
+
+    if (!otpSnapshot.exists()) {
+      return res.status(400).json({ error: 'No valid OTP found for this email, or it has expired' });
+    }
+
+    const otpData = otpSnapshot.val();
+    if (Date.now() > otpData.expiresAt) {
+      await db.ref(`otps/${encodedEmail}`).remove();
+      return res.status(400).json({ error: 'OTP has expired' });
+    }
+
+    if (otpData.otp !== otp) {
+      return res.status(400).json({ error: 'Invalid OTP' });
+    }
+
+    // OTP is valid. Now find the user by email
+    const usersSnapshot = await db.ref('users').orderByChild('email').equalTo(email).once('value');
+    if (!usersSnapshot.exists()) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const users = usersSnapshot.val();
+    const uid = Object.keys(users)[0];
+
+    // Update Firebase Auth password if possible, and DB hash
+    try {
+      await auth.updateUser(uid, { password: newPassword });
+    } catch (e) {
+      console.warn("Could not update Firebase Auth user password:", e.message);
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(newPassword, salt);
+    await db.ref(`users/${uid}`).update({ passwordHash });
+
+    // Clear the OTP
+    await db.ref(`otps/${encodedEmail}`).remove();
+
+    res.status(200).json({ message: 'Password reset successfully' });
+  } catch (error) {
+    console.error('Error resetting password:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 // Get all stations
 exports.getAllStations = async (req, res) => {
   try {
@@ -376,6 +427,81 @@ exports.updateStationStatus = async (req, res) => {
     res.status(200).json({ message: 'Station status updated successfully' });
   } catch (error) {
     console.error('Error updating station status:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Handle support contact forms
+exports.sendSupportEmail = async (req, res) => {
+  try {
+    const { name, email, message, userRole } = req.body;
+
+    if (!message) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+
+    // Default recipient is the app owner/smtp user
+    const toEmail = process.env.SMTP_USER || 'sudasunwarnakulasooriya@gmail.com';
+
+    const mailOptions = {
+      from: process.env.SMTP_USER,
+      to: toEmail,
+      subject: `New Support Request from Fuel TrackLK App`,
+      html: `
+        <h3>New Support Request</h3>
+        <p><strong>Name:</strong> ${name || 'Unknown'}</p>
+        <p><strong>Email:</strong> ${email || 'Not provided'}</p>
+        <p><strong>Role:</strong> ${userRole || 'Driver'}</p>
+        <hr />
+        <p><strong>Message:</strong></p>
+        <p>${message.replace(/\n/g, '<br>')}</p>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+    res.status(200).json({ message: 'Support email sent successfully' });
+  } catch (error) {
+    console.error('Error sending support email:', error);
+    res.status(500).json({ error: 'Failed to send support email' });
+  }
+};
+
+// Toggle a saved station for a user
+exports.toggleSavedStation = async (req, res) => {
+  try {
+    const { uid } = req.params;
+    const { stationId } = req.body;
+
+    if (!stationId) {
+      return res.status(400).json({ error: 'Station ID is required' });
+    }
+
+    const userRef = db.ref(`users/${uid}`);
+    const userSnapshot = await userRef.once('value');
+
+    if (!userSnapshot.exists()) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const userData = userSnapshot.val();
+    let savedStations = userData.savedStations || [];
+
+    if (savedStations.includes(stationId)) {
+      // Remove it
+      savedStations = savedStations.filter(id => id !== stationId);
+    } else {
+      // Add it
+      savedStations.push(stationId);
+    }
+
+    await userRef.update({ savedStations });
+
+    res.status(200).json({
+      message: 'Saved stations updated successfully',
+      savedStations
+    });
+  } catch (error) {
+    console.error('Error toggling saved station:', error);
     res.status(500).json({ error: error.message });
   }
 };

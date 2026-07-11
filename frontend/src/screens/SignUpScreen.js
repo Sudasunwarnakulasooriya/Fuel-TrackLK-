@@ -14,6 +14,7 @@ import { MaterialIcons, FontAwesome } from '@expo/vector-icons';
 import { colors, fontSizes, spacing, radii } from '../theme/theme';
 import InputField from '../components/InputField';
 import PrimaryButton from '../components/PrimaryButton';
+import ScreenHeader from '../components/ScreenHeader';
 
 export default function SignUpScreen({ navigation }) {
   const [name, setName] = useState('');
@@ -55,10 +56,11 @@ export default function SignUpScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
+      <ScreenHeader title="Register Driver" onBack={() => navigation.goBack()} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <Text style={styles.title}>Sign up</Text>
-          <Text style={styles.brand}>FuelTrack LK</Text>
+          <Text style={styles.title}>Driver Details</Text>
+          <Text style={styles.subtitle}>Enter your details to create an account.</Text>
 
           <InputField
             label="Full Name"
@@ -140,18 +142,18 @@ const styles = StyleSheet.create({
   },
   scroll: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.xl,
   },
   title: {
     fontSize: fontSizes.xl,
     fontWeight: '800',
     color: colors.textPrimary,
+    marginBottom: spacing.xs,
   },
-  brand: {
+  subtitle: {
     fontSize: fontSizes.sm,
-    color: colors.primary,
-    fontWeight: '700',
+    color: colors.textSecondary,
     marginBottom: spacing.lg,
   },
   dividerRow: {
