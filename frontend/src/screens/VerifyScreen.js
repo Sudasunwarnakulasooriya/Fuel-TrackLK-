@@ -8,14 +8,30 @@ import { useAuth } from '../context/AuthContext';
 export default function VerifyScreen({ route, navigation }) {
   const [code, setCode] = useState(['', '', '', '']);
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const [errorVisible, setErrorVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [modalTitle, setModalTitle] = useState('Error');
   const inputs = useRef([]);
   const { setUser, login } = useAuth();
 
-  const showError = (msg) => {
+  React.useEffect(() => {
+    let timer;
+    if (resendCooldown > 0) {
+      timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
+
+  const showModal = (msg, title = 'Error') => {
     setErrorMessage(msg);
+    setModalTitle(title);
     setErrorVisible(true);
+  };
+
+  const showError = (msg) => {
+    showModal(msg, 'Error');
   };
 
   // Extract email passed from SignUpScreen or SignUpStationScreen
@@ -26,6 +42,37 @@ export default function VerifyScreen({ route, navigation }) {
     next[index] = text;
     setCode(next);
     if (text && index < 3) inputs.current[index + 1]?.focus();
+  };
+
+  const handleResend = async () => {
+    if (resendCooldown > 0 || resending) return;
+    if (!email) {
+      showModal('Email not found. Please try signing up again.', 'Error');
+      return;
+    }
+
+    setResending(true);
+    try {
+      const apiUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+      const response = await fetch(`${apiUrl}/api/users/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+
+      const data = await response.json();
+      setResending(false);
+
+      if (response.ok) {
+        setResendCooldown(30);
+        showModal('A new 4-digit verification code has been sent to your email.', 'Success');
+      } else {
+        showModal(data.error || 'Failed to resend OTP', 'Error');
+      }
+    } catch (error) {
+      setResending(false);
+      showModal('Error connecting to backend: ' + error.message, 'Error');
+    }
   };
 
   const handleVerify = async () => {
@@ -128,9 +175,14 @@ export default function VerifyScreen({ route, navigation }) {
           ))}
         </View>
 
-        <Text style={styles.resendText}>
-          Didn't get a code? <Text style={styles.resendLink}>Resend</Text>
-        </Text>
+        <View style={styles.resendRow}>
+          <Text style={styles.resendText}>Didn't get a code? </Text>
+          <TouchableOpacity onPress={handleResend} disabled={resending || resendCooldown > 0}>
+            <Text style={[styles.resendLink, (resending || resendCooldown > 0) && { color: colors.textMuted }]}>
+              {resending ? 'Sending...' : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend'}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         <PrimaryButton
           title={loading ? "Verifying..." : "Confirm"}
@@ -148,7 +200,7 @@ export default function VerifyScreen({ route, navigation }) {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>Error</Text>
+            <Text style={[styles.modalTitle, modalTitle === 'Success' && { color: colors.success }]}>{modalTitle || 'Error'}</Text>
             <Text style={styles.modalMessage}>{errorMessage}</Text>
             <TouchableOpacity style={styles.modalButton} onPress={() => setErrorVisible(false)}>
               <Text style={styles.modalButtonText}>OK</Text>
@@ -201,6 +253,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryTint,
     borderWidth: 1.5,
     borderColor: colors.primary,
+  },
+  resendRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   resendText: {
     textAlign: 'center',

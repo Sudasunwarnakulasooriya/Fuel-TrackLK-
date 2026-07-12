@@ -204,10 +204,15 @@ export default function StationDashboard() {
 
         {/* Informational Estimate Box */}
         <View style={styles.estTimeBox}>
-          <MaterialIcons name="info-outline" size={18} color={colors.primary} />
-          <Text style={styles.estTimeText}>
-            Estimated wait time is automatically calculated based on queue status.
-          </Text>
+          <MaterialIcons name="access-time" size={22} color={colors.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.estTimeText, { fontWeight: '800', fontSize: fontSizes.sm, marginBottom: 2 }]}>
+              Current Estimated Wait Time: ~{queueStatus === 'HIGH' ? 45 : queueStatus === 'MEDIUM' ? 15 : 5} mins
+            </Text>
+            <Text style={styles.estTimeText}>
+              Estimated wait time is automatically calculated based on queue status.
+            </Text>
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
