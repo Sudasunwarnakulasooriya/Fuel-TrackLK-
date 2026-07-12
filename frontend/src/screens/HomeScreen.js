@@ -54,7 +54,7 @@ export default function HomeScreen({ navigation }) {
   const fetchStations = async (silent = false) => {
     if (!silent) setLoadingStations(true);
     try {
-      const apiUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+      const apiUrl = 'https://fuel-track-backend.onrender.com';
       const res = await fetch(`${apiUrl}/api/users/stations`);
       if (res.ok) {
         const data = await res.json();

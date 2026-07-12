@@ -24,7 +24,7 @@ export default function ForgotPasswordScreen({ navigation }) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  const apiUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+  const apiUrl = 'https://fuel-track-backend.onrender.com';
 
   const handleSendOtp = async () => {
     if (!email) {

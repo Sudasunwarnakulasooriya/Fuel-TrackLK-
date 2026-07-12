@@ -48,7 +48,7 @@ export default function LoginScreen({ navigation }) {
   const handleLogin = async () => {
     try {
       setLoading(true);
-      const apiUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+      const apiUrl = 'https://fuel-track-backend.onrender.com';
       
       const response = await fetch(`${apiUrl}/api/users/login`, {
         method: 'POST',

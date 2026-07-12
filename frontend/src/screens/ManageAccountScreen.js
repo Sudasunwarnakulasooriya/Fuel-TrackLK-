@@ -125,7 +125,7 @@ export default function ManageAccountScreen({ navigation }) {
     // Save basic info directly to backend
     setLoading(true);
     try {
-      const apiUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+      const apiUrl = 'https://fuel-track-backend.onrender.com';
       const bodyParams = { displayName: name, registrationNumber: vehicle };
       if (user.role === 'station') {
         bodyParams.location = coordinates;
@@ -176,7 +176,7 @@ export default function ManageAccountScreen({ navigation }) {
     
     setLoading(true);
     try {
-      const apiUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+      const apiUrl = 'https://fuel-track-backend.onrender.com';
       
       const bodyParams = { 
         email, 
