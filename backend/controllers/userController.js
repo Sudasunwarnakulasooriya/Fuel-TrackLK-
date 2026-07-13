@@ -11,6 +11,8 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
+  // Force IPv4 to prevent ENETUNREACH on Render's free tier
+  family: 4
 });
 
 // Register a new user or add profile data after Firebase Auth
