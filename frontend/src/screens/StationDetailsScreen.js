@@ -8,10 +8,65 @@ import { useAuth } from '../context/AuthContext';
 import * as Location from 'expo-location';
 import { GlobalAlertRef } from '../components/GlobalAlert';
 
+const formatRelativeTime = (val) => {
+  if (!val) return 'Just now';
+  
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (trimmed.toLowerCase() === 'just now' || trimmed.toLowerCase() === 'unknown' || trimmed.toLowerCase() === 'recently') {
+      return trimmed;
+    }
+    const match = trimmed.match(/^(\d+)\s+(min|mins|minute|minutes|hr|hrs|hour|hours|day|days)\s+ago$/i);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      const unit = match[2].toLowerCase();
+      if (unit.startsWith('min') && num >= 60) {
+        const hrs = Math.floor(num / 60);
+        const remainMins = num % 60;
+        if (hrs >= 24) {
+          const days = Math.floor(hrs / 24);
+          return `${days} day${days > 1 ? 's' : ''} ago`;
+        }
+        return remainMins > 0 ? `${hrs} hr ${remainMins} min ago` : `${hrs} hr${hrs > 1 ? 's' : ''} ago`;
+      }
+      return trimmed;
+    }
+  }
+
+  const dateObj = new Date(val);
+  if (isNaN(dateObj.getTime())) {
+    return typeof val === 'string' ? val : 'Just now';
+  }
+
+  const diffMs = Math.max(0, Date.now() - dateObj.getTime());
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins} min ago`;
+
+  const diffHours = Math.floor(diffMins / 60);
+  const remainMins = diffMins % 60;
+  if (diffHours < 24) {
+    return remainMins > 0 ? `${diffHours} hr ${remainMins} min ago` : `${diffHours} hr${diffHours > 1 ? 's' : ''} ago`;
+  }
+
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) {
+    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  }
+
+  return dateObj.toLocaleDateString();
+};
+
 export default function StationDetailsScreen({ route, navigation }) {
   const { station, driverCoords } = route.params;
   const { user, setUser } = useAuth();
-  const status = queueStatus[station.queue] || queueStatus['LOW'];
+  const [currentQueueCount, setCurrentQueueCount] = useState(station.queueCount !== undefined ? station.queueCount : 12);
+  const [lastUpdatedText, setLastUpdatedText] = useState(formatRelativeTime(station.lastUpdated));
+  const [currentQueueStatus, setCurrentQueueStatus] = useState(station.queue || (station.queueCount > 25 ? 'HIGH' : station.queueCount > 12 ? 'MEDIUM' : 'LOW'));
+  const [bestTimePrediction, setBestTimePrediction] = useState('AI prediction: queues are usually shortest between 1:00 PM – 3:00 PM today.');
+
+  const status = queueStatus[currentQueueStatus] || queueStatus['LOW'];
 
   const [reviewsModalVisible, setReviewsModalVisible] = useState(false);
   const [reviews, setReviews] = useState([]);
@@ -119,7 +174,94 @@ export default function StationDetailsScreen({ route, navigation }) {
 
   useEffect(() => {
     fetchReviews();
-  }, []);
+    fetchRealDataAndPrediction();
+  }, [station.id]);
+
+  const fetchRealDataAndPrediction = async () => {
+    try {
+      const apiUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+      
+      let liveQueue = station.queueCount !== undefined ? station.queueCount : 12;
+      let liveUpdated = formatRelativeTime(station.lastUpdated);
+      let liveStatus = station.queue || 'LOW';
+
+      // 1. Fetch live station queue data from database
+      try {
+        const stationRes = await fetch(`${apiUrl}/api/users/${station.id}`);
+        if (stationRes.ok) {
+          const stationData = await stationRes.json();
+          if (stationData && (stationData.queueCount !== undefined || stationData.role === 'station')) {
+            if (stationData.queueCount !== undefined) liveQueue = stationData.queueCount;
+            if (stationData.lastUpdated) {
+              liveUpdated = formatRelativeTime(stationData.lastUpdated);
+            } else {
+              liveUpdated = 'Just now';
+            }
+            liveStatus = stationData.queueStatus || (liveQueue > 25 ? 'HIGH' : liveQueue > 12 ? 'MEDIUM' : 'LOW');
+            setCurrentQueueCount(liveQueue);
+            setLastUpdatedText(liveUpdated);
+            setCurrentQueueStatus(liveStatus);
+          }
+        } else {
+          const allRes = await fetch(`${apiUrl}/api/users/stations`);
+          if (allRes.ok) {
+            const allData = await allRes.json();
+            const found = Array.isArray(allData) ? allData.find(s => s.id === station.id) : null;
+            if (found) {
+              if (found.queueCount !== undefined) liveQueue = found.queueCount;
+              liveUpdated = found.lastUpdated ? formatRelativeTime(found.lastUpdated) : 'Recently';
+              liveStatus = found.queueStatus || (liveQueue > 25 ? 'HIGH' : liveQueue > 12 ? 'MEDIUM' : 'LOW');
+              setCurrentQueueCount(liveQueue);
+              setLastUpdatedText(liveUpdated);
+              setCurrentQueueStatus(liveStatus);
+            }
+          }
+        }
+      } catch (dbErr) {
+        console.log('Live station DB fetch error:', dbErr.message);
+      }
+
+      // 2. Fetch real-time AI model prediction for best time and queue behavior
+      const currentHour = new Date().getHours();
+      const dayOfWeek = new Date().getDay();
+
+      const predictRes = await fetch(`${apiUrl}/api/ai/predict`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          hour: currentHour,
+          dayOfWeek: dayOfWeek,
+          stationId: station.id,
+          stationName: station.name,
+          city: station.address,
+          currentQueueCount: liveQueue,
+          queueStatus: liveStatus
+        }),
+      });
+
+      if (predictRes.ok) {
+        const predictData = await predictRes.json();
+        if (predictData && predictData.success) {
+          if (predictData.bestTime) {
+            setBestTimePrediction(`AI prediction: queues are usually shortest between ${predictData.bestTime} today.`);
+          }
+          if (predictData.hourlyPredictions && Array.isArray(predictData.hourlyPredictions)) {
+            const hoursList = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
+            const currentIdx = hoursList.indexOf(currentHour);
+            if (currentIdx !== -1 && !station.queueCount && currentQueueCount === 12) {
+              const modelCurrentCount = predictData.hourlyPredictions[currentIdx];
+              if (modelCurrentCount !== undefined) {
+                setCurrentQueueCount(modelCurrentCount);
+                setCurrentQueueStatus(modelCurrentCount > 25 ? 'HIGH' : modelCurrentCount > 12 ? 'MEDIUM' : 'LOW');
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.log('Error fetching AI prediction in StationDetailsScreen:', error.message);
+    }
+  };
 
   const fetchReviews = async () => {
     try {
@@ -383,10 +525,10 @@ export default function StationDetailsScreen({ route, navigation }) {
           <View style={styles.queueCard}>
             <View>
               <Text style={styles.queueCardLabel}>Current Queue</Text>
-              <Text style={styles.queueCardValue}>{station.queueCount} vehicles</Text>
+              <Text style={styles.queueCardValue}>{currentQueueCount} vehicles</Text>
             </View>
             <View style={styles.queueCardRight}>
-              <Text style={styles.queueCardUpdated}>Updated {station.lastUpdated}</Text>
+              <Text style={styles.queueCardUpdated}>Updated {lastUpdatedText}</Text>
             </View>
           </View>
 
@@ -394,7 +536,7 @@ export default function StationDetailsScreen({ route, navigation }) {
           <View style={styles.predictionCard}>
             <MaterialIcons name="auto-awesome" size={20} color={colors.primary} />
             <Text style={styles.predictionText}>
-              AI prediction: queues are usually shortest between 1:00 PM – 3:00 PM today.
+              {bestTimePrediction}
             </Text>
           </View>
         </View>
