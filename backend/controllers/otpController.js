@@ -1,4 +1,8 @@
 const nodemailer = require("nodemailer");
+const dns = require('dns');
+
+// Force Node.js to use IPv4 first for all DNS lookups to fix Render's IPv6 ENETUNREACH error
+dns.setDefaultResultOrder('ipv4first');
 
 const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
