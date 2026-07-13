@@ -53,7 +53,7 @@ export default function VerifyScreen({ route, navigation }) {
 
     setResending(true);
     try {
-      const apiUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+      const apiUrl = 'https://fuel-track-backend.onrender.com';
       const response = await fetch(`${apiUrl}/api/users/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

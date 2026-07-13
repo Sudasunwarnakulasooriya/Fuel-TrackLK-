@@ -47,7 +47,7 @@ export default function PredictionsScreen() {
   const fetchLiveStations = async (silent = false) => {
     try {
       if (!silent && !stations.length) setLoading(true);
-      const apiUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+      const apiUrl = 'https://fuel-track-backend.onrender.com';
       const res = await fetch(`${apiUrl}/api/users/stations`);
       
       let liveStationsList = [];
@@ -120,7 +120,7 @@ export default function PredictionsScreen() {
     if (!targetStation) return;
     try {
       setLoading(true);
-      const apiUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+      const apiUrl = 'https://fuel-track-backend.onrender.com';
       const currentHour = new Date().getHours();
       const dayOfWeek = new Date().getDay();
 

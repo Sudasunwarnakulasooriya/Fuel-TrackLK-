@@ -179,7 +179,7 @@ export default function StationDetailsScreen({ route, navigation }) {
 
   const fetchRealDataAndPrediction = async () => {
     try {
-      const apiUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+      const apiUrl = 'https://fuel-track-backend.onrender.com';
       
       let liveQueue = station.queueCount !== undefined ? station.queueCount : 12;
       let liveUpdated = formatRelativeTime(station.lastUpdated);
