@@ -14,7 +14,7 @@ export default function AddressesScreen({ navigation }) {
   useEffect(() => {
     const fetchSaved = async () => {
       try {
-        const apiUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+        const apiUrl = 'https://fuel-track-backend.onrender.com';
         const res = await fetch(`${apiUrl}/api/users/stations`);
         if (res.ok) {
           const allStations = await res.json();

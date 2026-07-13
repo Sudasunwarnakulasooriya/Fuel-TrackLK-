@@ -266,7 +266,7 @@ export default function StationDetailsScreen({ route, navigation }) {
   const fetchReviews = async () => {
     try {
       setLoadingReviews(true);
-      const apiUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+      const apiUrl = 'https://fuel-track-backend.onrender.com';
       const res = await fetch(`${apiUrl}/api/stations/${station.id}/reviews`);
       if (res.ok) {
         const data = await res.json();
@@ -296,7 +296,7 @@ export default function StationDetailsScreen({ route, navigation }) {
 
     try {
       setSubmittingReview(true);
-      const apiUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+      const apiUrl = 'https://fuel-track-backend.onrender.com';
       
       const method = editingReviewId ? 'PUT' : 'POST';
       const endpoint = editingReviewId 
@@ -361,7 +361,7 @@ export default function StationDetailsScreen({ route, navigation }) {
     const doDelete = async () => {
       try {
         setLoadingReviews(true);
-        const apiUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+        const apiUrl = 'https://fuel-track-backend.onrender.com';
         const res = await fetch(`${apiUrl}/api/stations/${station.id}/reviews/${reviewId}`, {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
@@ -419,7 +419,7 @@ export default function StationDetailsScreen({ route, navigation }) {
     if (!user || !user.uid) return;
     setTogglingSave(true);
     try {
-      const apiUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+      const apiUrl = 'https://fuel-track-backend.onrender.com';
       const res = await fetch(`${apiUrl}/api/users/${user.uid}/saved-stations`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },

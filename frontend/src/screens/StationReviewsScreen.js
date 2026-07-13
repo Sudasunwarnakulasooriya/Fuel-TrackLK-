@@ -19,7 +19,7 @@ export default function StationReviewsScreen({ navigation }) {
   const fetchReviews = async () => {
     try {
       setLoading(true);
-      const apiUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+      const apiUrl = 'https://fuel-track-backend.onrender.com';
       const res = await fetch(`${apiUrl}/api/stations/${user.uid}/reviews`);
       if (res.ok) {
         const data = await res.json();

@@ -42,7 +42,7 @@ export default function StationDashboard() {
     // Fetch current station status on mount
     const fetchStatus = async () => {
       try {
-        const apiUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+        const apiUrl = 'https://fuel-track-backend.onrender.com';
         const res = await fetch(`${apiUrl}/api/users/${user.uid}`);
         if (res.ok) {
           const data = await res.json();
@@ -65,7 +65,7 @@ export default function StationDashboard() {
   const handleSave = async () => {
     setLoading(true);
     try {
-      const apiUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+      const apiUrl = 'https://fuel-track-backend.onrender.com';
       const res = await fetch(`${apiUrl}/api/users/${user.uid}/station-status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },

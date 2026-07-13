@@ -58,7 +58,7 @@ export default function NearbyStationsScreen({ route, navigation }) {
     const fetchStations = async () => {
       setLoading(true);
       try {
-        const apiUrl = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+        const apiUrl = 'https://fuel-track-backend.onrender.com';
         const res = await fetch(`${apiUrl}/api/users/stations`);
         if (res.ok) {
           const data = await res.json();
